@@ -421,4 +421,17 @@ test('Multi-horizon Goal Roadmap updates prompt answers and syncs directly with 
   assert.equal(stats.answeredHorizons, 2);
 });
 
+test('getLayoutSpec returns left navigation for tablet/desktop and bottom navigation with 9:16 aspect ratio for Android mobile', async () => {
+  const { getLayoutSpec } = await import('./todoLogic.ts');
+  const tabletSpec = getLayoutSpec('tablet');
+  assert.equal(tabletSpec.navPosition, 'left');
+  assert.equal(tabletSpec.version, 'tablet');
+
+  const mobileSpec = getLayoutSpec('mobile');
+  assert.equal(mobileSpec.navPosition, 'bottom');
+  assert.equal(mobileSpec.aspectRatio, '9:16');
+  assert.equal(mobileSpec.version, 'mobile');
+});
+
+
 

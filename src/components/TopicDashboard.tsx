@@ -195,9 +195,9 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
     ).length;
 
     return (
-      <div className="space-y-6" data-testid="topic-detail-view">
+      <div className="@container space-y-5" data-testid="topic-detail-view">
         {/* Top Back Navigation & Connected Life Area */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col @sm:flex-row @sm:items-center justify-between gap-2.5">
           <button
             type="button"
             onClick={() => setSelectedTopicId(null)}
@@ -210,7 +210,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
           <button
             type="button"
             onClick={() => onNavigateToLifeArea(selectedTopic.lifeArea)}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 cursor-pointer self-start sm:self-auto"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 hover:text-emerald-800 cursor-pointer self-start @sm:self-auto"
           >
             <Compass className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Connected Area of Life: {selectedTopic.lifeArea}</span>
@@ -221,7 +221,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
         {/* Topic Overview & Goal Progress Card */}
         <section
           aria-label="Topic Goal Progress"
-          className="bg-white border border-slate-200 rounded-xl p-6 space-y-5"
+          className="bg-white border border-slate-200 rounded-xl p-4 @sm:p-6 space-y-4"
         >
           <div>
             <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -231,11 +231,11 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
               <span aria-hidden="true">·</span>
               <span>Topic Focus</span>
             </div>
-            <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 font-display">
+            <h1 className="mt-1 text-lg @sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
               {selectedTopic.title}
             </h1>
             {selectedTopic.description && (
-              <p className="mt-1.5 text-sm text-slate-600 leading-relaxed">
+              <p className="mt-1.5 text-xs @sm:text-sm text-slate-600 leading-relaxed">
                 {selectedTopic.description}
               </p>
             )}
@@ -243,7 +243,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
 
           {/* Goal Progress Section */}
           <div className="pt-4 border-t border-slate-100 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+            <div className="flex flex-col @sm:flex-row @sm:items-baseline justify-between gap-2">
               <div>
                 <h2 className="text-xs font-semibold text-slate-500">
                   Topic Goal
@@ -332,7 +332,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 @sm:grid-cols-2 gap-2">
                 {GOAL_HORIZONS.map((hKey) => {
                   const config = GOAL_HORIZON_PROMPTS[hKey];
                   const step = selectedRoadmap.steps[hKey];
@@ -495,8 +495,8 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
               </p>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-              <div className="sm:col-span-3">
+            <div className="grid grid-cols-1 @sm:grid-cols-12 gap-2.5">
+              <div className="@sm:col-span-3">
                 <label htmlFor="res-type" className="sr-only">
                   Resource Type
                 </label>
@@ -516,7 +516,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
                 </select>
               </div>
 
-              <div className="sm:col-span-4">
+              <div className="@sm:col-span-4">
                 <label htmlFor="res-title" className="sr-only">
                   Resource Title
                 </label>
@@ -533,7 +533,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
                 />
               </div>
 
-              <div className="sm:col-span-3">
+              <div className="@sm:col-span-3">
                 <label htmlFor="res-url" className="sr-only">
                   Resource URL
                 </label>
@@ -550,7 +550,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
                 />
               </div>
 
-              <div className="sm:col-span-2">
+              <div className="@sm:col-span-2">
                 <button
                   type="submit"
                   className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1 transition-colors cursor-pointer whitespace-nowrap"
@@ -570,13 +570,13 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
   // Topics List / Grid Overview
   // ==========================================================================
   return (
-    <div className="space-y-6" data-testid="topic-dashboard-list">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="@container space-y-5" data-testid="topic-dashboard-list">
+      <div className="flex flex-col @sm:flex-row @sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">
+          <h1 className="text-lg @sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
             Topic Dashboard
           </h1>
-          <p className="text-sm text-slate-600 mt-0.5">
+          <p className="text-xs @sm:text-sm text-slate-600 mt-0.5">
             Select a topic to inspect its connected Area of Life, track goal
             progress, and access your YouTube, Udemy, and App resources.
           </p>
@@ -586,7 +586,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
           type="button"
           onClick={() => setShowNewTopicForm((prev) => !prev)}
           aria-expanded={showNewTopicForm}
-          className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+          className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 self-start @sm:self-auto cursor-pointer"
         >
           <Plus className="w-4 h-4" aria-hidden="true" />
           <span>{showNewTopicForm ? 'Cancel' : 'New Topic'}</span>
@@ -597,7 +597,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
       {showNewTopicForm && (
         <form
           onSubmit={handleCreateTopicSubmit}
-          className="bg-white border border-slate-200 rounded-xl p-5 space-y-4"
+          className="bg-white border border-slate-200 rounded-xl p-4 @sm:p-5 space-y-4"
           aria-label="Create new topic"
         >
           <h2 className="text-sm font-semibold text-slate-900">
@@ -610,7 +610,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
             </p>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 @sm:grid-cols-2 gap-3">
             <div>
               <label
                 htmlFor="topic-title-input"
@@ -652,7 +652,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
               </select>
             </div>
 
-            <div className="sm:col-span-2">
+            <div className="@sm:col-span-2">
               <label
                 htmlFor="topic-desc-input"
                 className="block text-xs font-medium text-slate-600 mb-1"
@@ -744,7 +744,7 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
       )}
 
       {/* Topics Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4" role="list">
+      <div className="grid grid-cols-1 @md:grid-cols-2 gap-3.5" role="list">
         {topics.map((topic) => {
           const pct = computeTopicProgressPercent(topic);
           return (

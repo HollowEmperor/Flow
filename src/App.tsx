@@ -10,8 +10,14 @@ import {
   BookOpen,
   Target,
   Calendar as CalendarIcon,
+  Tablet,
+  Smartphone,
+  Columns2,
+  Plus,
 } from 'lucide-react';
 import {
+  AppLayoutVersion,
+  WorkspaceTab,
   Category,
   LIFE_AREAS,
   Priority,
@@ -62,6 +68,7 @@ import { LifeRadarChart } from './components/LifeRadarChart';
 import { TopicDashboard } from './components/TopicDashboard';
 import { GoalPlanner } from './components/GoalPlanner';
 import { CalendarWorkspace } from './components/CalendarWorkspace';
+import { AndroidMobileApp } from './components/AndroidMobileApp';
 
 const STORAGE_KEY = 'focusflow_todos_v3';
 const BRAINDUMP_STORAGE_KEY = 'focusflow_braindump_v2';
@@ -155,9 +162,9 @@ export default function App() {
     return {};
   });
 
-  const [activeView, setActiveView] = useState<
-    'tasks' | 'goals' | 'topics' | 'calendar' | 'braindump'
-  >('tasks');
+  // Two app versions: 'tablet' (Tablet/Desktop with Left Nav), 'mobile' (Android 9:16 with Bottom Nav), or 'split' (Both Side-by-Side)
+  const [layoutVersion, setLayoutVersion] = useState<AppLayoutVersion>('tablet');
+  const [activeView, setActiveView] = useState<WorkspaceTab>('tasks');
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<Category | 'All'>('All');
@@ -451,15 +458,533 @@ export default function App() {
     }, 20);
   };
 
+  const leftRailNavItems: Array<{
+    id: WorkspaceTab;
+    label: string;
+    badge?: number;
+    icon: React.ReactNode;
+  }> = [
+    {
+      id: 'tasks',
+      label: 'Tasks',
+      badge: stats.active,
+      icon: <ListTodo className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'goals',
+      label: 'Goals (5Y→1W)',
+      icon: <Target className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'topics',
+      label: 'Topic Dashboard',
+      badge: topics.length,
+      icon: <BookOpen className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'calendar',
+      label: 'Calendar',
+      icon: <CalendarIcon className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'braindump',
+      label: 'Brain Dump',
+      badge: brainDumpQueueCount,
+      icon: <Layers className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+  ];
+
+  // Tablet / Desktop Version with Left Navigation Bar
+  const renderTabletDesktopVersion = () => (
+    <div
+      data-testid="tablet-desktop-version"
+      className="h-[min(750px,calc(100vh-116px))] min-h-[580px] w-full bg-slate-50 border-[5px] border-slate-900 rounded-[28px] shadow-xl flex flex-col overflow-hidden"
+    >
+      {/* Tablet / Desktop Status & Window Bar */}
+      <div className="bg-slate-900 text-white px-5 py-1.5 flex items-center justify-between text-[11px] font-mono select-none shrink-0">
+        <div className="flex items-center gap-2.5">
+          <span className="font-semibold">09:41</span>
+          <span className="text-emerald-400 text-[10px]">
+            Tablet / Desktop · 16:10 Landscape (Left Nav)
+          </span>
+        </div>
+        <div className="flex items-center gap-2 text-slate-300 text-[10px]">
+          <span>FocusFlow OS</span>
+          <span aria-hidden="true">·</span>
+          <span className="text-emerald-400 font-semibold">
+            {stats.completionRate}% Daily Goal
+          </span>
+        </div>
+      </div>
+
+      {/* Tablet Body: Left Navigation Bar + Scrollable Main Workspace */}
+      <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
+        {/* Left Navigation Bar for Tablet & Desktop Version */}
+        <aside
+          aria-label="Tablet and desktop left navigation bar"
+          data-testid="tablet-left-nav"
+          className="w-52 sm:w-56 h-full shrink-0 bg-white border-r border-slate-200 p-3.5 flex flex-col justify-between overflow-y-auto"
+        >
+          <div className="space-y-4">
+            <div className="px-2 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+                  Tablet / Desktop
+                </span>
+                <p className="text-[11px] text-slate-500">
+                  Left Navigation Bar
+                </p>
+              </div>
+              <Tablet className="w-4 h-4 text-slate-400" aria-hidden="true" />
+            </div>
+
+            {/* Left Navigation Links */}
+            <nav aria-label="Left workspace navigation" className="space-y-1">
+              {leftRailNavItems.map((item) => {
+                const isActive = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveView(item.id)}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                      isActive
+                        ? 'bg-slate-900 text-white'
+                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 truncate">
+                      {item.icon}
+                      <span className="truncate">{item.label}</span>
+                    </span>
+                    {item.badge !== undefined && (
+                      <span
+                        className={`font-mono tabular-nums text-[10px] px-1.5 py-0.5 rounded-md ${
+                          isActive
+                            ? 'bg-white/15 text-white'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* 7 Life Areas Quick Filter in Left Rail */}
+            <div className="pt-3 border-t border-slate-100 space-y-1">
+              <div className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                7 Life Focus Areas
+              </div>
+              <div className="space-y-0.5">
+                {CATEGORIES_WITH_ALL.map((area) => {
+                  const isSelected =
+                    activeView === 'tasks' && categoryFilter === area;
+                  return (
+                    <button
+                      key={area}
+                      type="button"
+                      onClick={() => {
+                        setCategoryFilter(area);
+                        setActiveView('tasks');
+                      }}
+                      className={`w-full text-left px-2.5 py-1 rounded-lg text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                        isSelected
+                          ? 'bg-emerald-50 text-emerald-900 font-semibold'
+                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>{area === 'All' ? 'All Areas' : area}</span>
+                      {isSelected && (
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Progress Summary inside Left Rail */}
+          <div className="pt-3 mt-3 border-t border-slate-100 space-y-2 px-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-semibold text-slate-700">
+                Daily Progress
+              </span>
+              <span className="text-xs font-mono tabular-nums font-bold text-emerald-700">
+                {stats.completionRate}%
+              </span>
+            </div>
+            <div
+              className="h-2 w-full bg-slate-100 rounded-full overflow-hidden"
+              role="progressbar"
+              aria-valuenow={stats.completionRate}
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                className="h-full bg-emerald-600 transition-transform duration-200 origin-left"
+                style={{
+                  transform: `scaleX(${stats.completionRate / 100})`,
+                }}
+              />
+            </div>
+            <dl className="grid grid-cols-3 gap-1 pt-0.5 text-center">
+              <div>
+                <dt className="text-[10px] text-slate-400">Active</dt>
+                <dd
+                  data-testid="stat-active"
+                  className="text-xs font-bold font-mono text-slate-900"
+                >
+                  {stats.active}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[10px] text-slate-400">Done</dt>
+                <dd
+                  data-testid="stat-completed"
+                  className="text-xs font-bold font-mono text-emerald-700"
+                >
+                  {stats.completed}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[10px] text-slate-400">High</dt>
+                <dd
+                  data-testid="stat-high-priority"
+                  className="text-xs font-bold font-mono text-red-600"
+                >
+                  {stats.highPriorityActive}
+                </dd>
+              </div>
+            </dl>
+
+            <button
+              type="button"
+              onClick={focusQuickAdd}
+              className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Quick New Task</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Scrollable Tablet / Desktop Main Canvas */}
+        <div className="flex-1 h-full overflow-y-auto p-5 @container">
+          <div className="grid grid-cols-1 @3xl:grid-cols-12 gap-5 items-start">
+            {/* Main Active Workspace */}
+            <section className="@3xl:col-span-7 space-y-5 min-w-0">
+              {activeView === 'goals' ? (
+                <GoalPlanner
+                  topics={topics}
+                  roadmaps={goalRoadmaps}
+                  activeTopicId={selectedTopicId}
+                  onSelectTopic={(id) => setSelectedTopicId(id)}
+                  onUpdateHorizonAnswer={handleUpdateHorizonAnswer}
+                  onToggleHorizonCompleted={handleToggleHorizonCompleted}
+                  onPushHorizonToTodo={handlePushHorizonToTodo}
+                  onOpenTopicDetail={(topicId) => {
+                    setSelectedTopicId(topicId);
+                    setActiveView('topics');
+                  }}
+                />
+              ) : activeView === 'topics' ? (
+                <TopicDashboard
+                  topics={topics}
+                  roadmaps={goalRoadmaps}
+                  selectedTopicId={selectedTopicId}
+                  onSelectTopicId={setSelectedTopicId}
+                  onCreateTopic={handleCreateTopic}
+                  onUpdateProgress={handleUpdateTopicProgress}
+                  onAddResource={handleAddTopicResource}
+                  onToggleResource={handleToggleTopicResource}
+                  onDeleteResource={handleDeleteTopicResource}
+                  onNavigateToLifeArea={(area) => {
+                    setCategoryFilter(area);
+                    setActiveView('tasks');
+                  }}
+                  onOpenGoalPlanner={(topicId) => {
+                    setSelectedTopicId(topicId);
+                    setActiveView('goals');
+                  }}
+                  onToggleHorizonCompleted={handleToggleHorizonCompleted}
+                />
+              ) : activeView === 'calendar' ? (
+                <CalendarWorkspace
+                  todos={todos}
+                  onAddTodoOnDate={handleAddTodo}
+                  onToggleTodo={handleToggleTodo}
+                />
+              ) : activeView === 'braindump' ? (
+                <BrainDumpSwiper
+                  items={brainDumpItems}
+                  onAddDumpItems={handleAddDumpItems}
+                  onSwipeRight={handleSwipeRight}
+                  onSwipeLeft={handleSwipeLeft}
+                  onRestoreToDeck={handleRestoreToDeck}
+                  onDeleteDumpItem={handleDeleteDumpItem}
+                  onSwitchToTodoList={() => setActiveView('tasks')}
+                />
+              ) : (
+                <>
+                  {/* Page Header & Contextual Actions */}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
+                        {categoryFilter === 'All'
+                          ? 'All Life Areas'
+                          : `${categoryFilter} Tasks`}
+                      </h1>
+                      <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
+                        {stats.active === 0
+                          ? 'All caught up! Add a new task below or swipe from your Brain Dump.'
+                          : `You have ${stats.active} active ${
+                              stats.active === 1 ? 'task' : 'tasks'
+                            } across your 7 core areas.`}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {stats.completed > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleClearCompleted}
+                          className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+                        >
+                          <Trash2
+                            className="w-3.5 h-3.5 text-slate-500"
+                            aria-hidden="true"
+                          />
+                          <span>Clear Completed ({stats.completed})</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleResetDemo}
+                        className="px-3 py-1.5 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+                      >
+                        <RotateCcw
+                          className="w-3.5 h-3.5 text-slate-500"
+                          aria-hidden="true"
+                        />
+                        <span>Reset Sample Tasks</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Add Task Bar */}
+                  <QuickAddTask
+                    defaultCategory={
+                      categoryFilter === 'All' ? 'Portfolio' : categoryFilter
+                    }
+                    onAdd={handleAddTodo}
+                  />
+
+                  {/* Search, Status Tabs, and Sort Toolbar */}
+                  <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white border border-slate-200 rounded-xl p-2.5">
+                    <div
+                      role="group"
+                      aria-label="Filter tasks by completion status"
+                      className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg"
+                    >
+                      {(
+                        [
+                          { id: 'all', label: `All (${stats.total})` },
+                          { id: 'active', label: `Active (${stats.active})` },
+                          {
+                            id: 'completed',
+                            label: `Completed (${stats.completed})`,
+                          },
+                        ] as const
+                      ).map((tab) => (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => setStatusFilter(tab.id)}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                            statusFilter === tab.id
+                              ? 'bg-white text-slate-900 shadow-xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-1 min-w-[200px] items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search
+                          className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+                          aria-hidden="true"
+                        />
+                        <label htmlFor="search-tasks" className="sr-only">
+                          Search tasks
+                        </label>
+                        <input
+                          id="search-tasks"
+                          type="search"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search tasks..."
+                          className="w-full pl-8 pr-2.5 py-1.5 text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-400"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <SlidersHorizontal
+                          className="w-3.5 h-3.5 text-slate-400 hidden sm:inline"
+                          aria-hidden="true"
+                        />
+                        <label htmlFor="sort-tasks" className="sr-only">
+                          Sort tasks by
+                        </label>
+                        <select
+                          id="sort-tasks"
+                          value={sortBy}
+                          onChange={(e) =>
+                            setSortBy(e.target.value as SortOption)
+                          }
+                          className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-slate-400"
+                        >
+                          <option value="dueDate">Sort: Due Date</option>
+                          <option value="priority">Sort: Priority</option>
+                          <option value="created">Sort: Newest</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Task List Container */}
+                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                    {visibleTodos.length > 0 ? (
+                      <div divide-y="true" role="list" aria-label="Task list">
+                        {visibleTodos.map((todo) => (
+                          <TaskRow
+                            key={todo.id}
+                            todo={todo}
+                            isFocused={selectedFocusTaskId === todo.id}
+                            onToggle={handleToggleTodo}
+                            onDelete={handleDeleteTodo}
+                            onUpdate={handleUpdateTodo}
+                            onAddSubtask={handleAddSubtask}
+                            onToggleSubtask={handleToggleSubtask}
+                            onDeleteSubtask={handleDeleteSubtask}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-12 px-6 text-center">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
+                          {todos.length === 0 ? (
+                            <ListTodo className="w-5 h-5" aria-hidden="true" />
+                          ) : (
+                            <CheckCircle2
+                              className="w-5 h-5"
+                              aria-hidden="true"
+                            />
+                          )}
+                        </div>
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          {todos.length === 0
+                            ? 'Your task list is empty'
+                            : 'No matching tasks found'}
+                        </h3>
+                        <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+                          {todos.length === 0
+                            ? 'Add your first task above to start organizing your day.'
+                            : 'Try clearing your search query or switching the active status and life area filters.'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </section>
+
+            {/* Right Insights Column: 7-Axis Life Focus Radar Chart & Task Wheel Picker */}
+            <aside className="@3xl:col-span-5 grid grid-cols-1 @xl:grid-cols-2 @3xl:grid-cols-1 gap-5 items-start">
+              <LifeRadarChart
+                todos={todos}
+                activeCategory={categoryFilter}
+                baseOverrides={radarBaseOverrides}
+                onSelectCategory={(cat) => {
+                  setActiveView('tasks');
+                  setCategoryFilter(cat);
+                }}
+                onAdjustBaseScore={handleAdjustBaseScore}
+              />
+
+              <TaskWheelPicker
+                todos={todos}
+                activeCategory={categoryFilter}
+                selectedFocusTaskId={selectedFocusTaskId}
+                onSelectFocusTask={setSelectedFocusTaskId}
+                onCompleteTask={handleToggleTodo}
+              />
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Android 9:16 Mobile Version with Bottom Navigation Bar
+  const renderAndroidMobileVersion = () => (
+    <AndroidMobileApp
+      activeView={activeView}
+      onSelectView={setActiveView}
+      todos={todos}
+      visibleTodos={visibleTodos}
+      stats={stats}
+      categoryFilter={categoryFilter}
+      onSelectCategoryFilter={setCategoryFilter}
+      selectedFocusTaskId={selectedFocusTaskId}
+      onSelectFocusTask={setSelectedFocusTaskId}
+      radarBaseOverrides={radarBaseOverrides}
+      onAdjustBaseScore={handleAdjustBaseScore}
+      onAddTodo={handleAddTodo}
+      onToggleTodo={handleToggleTodo}
+      onDeleteTodo={handleDeleteTodo}
+      onUpdateTodo={handleUpdateTodo}
+      onAddSubtask={handleAddSubtask}
+      onToggleSubtask={handleToggleSubtask}
+      onDeleteSubtask={handleDeleteSubtask}
+      topics={topics}
+      goalRoadmaps={goalRoadmaps}
+      selectedTopicId={selectedTopicId}
+      onSelectTopicId={setSelectedTopicId}
+      onCreateTopic={handleCreateTopic}
+      onUpdateTopicProgress={handleUpdateTopicProgress}
+      onAddTopicResource={handleAddTopicResource}
+      onToggleTopicResource={handleToggleTopicResource}
+      onDeleteTopicResource={handleDeleteTopicResource}
+      onUpdateHorizonAnswer={handleUpdateHorizonAnswer}
+      onToggleHorizonCompleted={handleToggleHorizonCompleted}
+      onPushHorizonToTodo={handlePushHorizonToTodo}
+      brainDumpItems={brainDumpItems}
+      brainDumpQueueCount={brainDumpQueueCount}
+      onAddDumpItems={handleAddDumpItems}
+      onSwipeRight={handleSwipeRight}
+      onSwipeLeft={handleSwipeLeft}
+      onRestoreToDeck={handleRestoreToDeck}
+      onDeleteDumpItem={handleDeleteDumpItem}
+    />
+  );
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900">
       <ConfettiOverlay
         celebration={celebration}
         onDismiss={() => setCelebration(null)}
       />
 
-      {/* Top Bar Contract: 3 zones (Brand, 5 concise single-line nav links, 1 primary action) */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-slate-200 px-6 py-3.5 flex items-center justify-between gap-8">
+      {/* Top Bar Contract: 3 zones (Brand, Version Switcher, Primary Action) */}
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-8">
         <a
           href="#top"
           onClick={(e) => {
@@ -473,66 +998,54 @@ export default function App() {
           FocusFlow
         </a>
 
-        <nav
-          aria-label="Primary workspace navigation"
-          className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600"
+        {/* App Version Switcher: Tablet (Left Nav) vs Android 9:16 (Bottom Nav) vs Split Comparison */}
+        <div
+          role="group"
+          aria-label="Select application layout version"
+          className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl"
         >
           <button
             type="button"
-            onClick={() => setActiveView('tasks')}
-            className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer pb-0.5 border-b-2 ${
-              activeView === 'tasks'
-                ? 'text-slate-900 border-slate-900 font-semibold'
-                : 'border-transparent hover:text-slate-900'
+            onClick={() => setLayoutVersion('tablet')}
+            data-testid="switch-version-tablet"
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              layoutVersion === 'tablet'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Tasks
+            <Tablet className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Tablet / Desktop (Left Nav)</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveView('goals')}
-            className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer pb-0.5 border-b-2 ${
-              activeView === 'goals'
-                ? 'text-slate-900 border-slate-900 font-semibold'
-                : 'border-transparent hover:text-slate-900'
+            onClick={() => setLayoutVersion('mobile')}
+            data-testid="switch-version-mobile"
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              layoutVersion === 'mobile'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Goals (5Y→1W)
+            <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Android 9:16 (Bottom Nav)</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setActiveView('topics')}
-            className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer pb-0.5 border-b-2 ${
-              activeView === 'topics'
-                ? 'text-slate-900 border-slate-900 font-semibold'
-                : 'border-transparent hover:text-slate-900'
+            onClick={() => setLayoutVersion('split')}
+            data-testid="switch-version-split"
+            className={`hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-semibold items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+              layoutVersion === 'split'
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            Topic Dashboard
+            <Columns2 className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Both Versions (Side-by-Side)</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('calendar')}
-            className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer pb-0.5 border-b-2 ${
-              activeView === 'calendar'
-                ? 'text-slate-900 border-slate-900 font-semibold'
-                : 'border-transparent hover:text-slate-900'
-            }`}
-          >
-            Calendar
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveView('braindump')}
-            className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer pb-0.5 border-b-2 ${
-              activeView === 'braindump'
-                ? 'text-slate-900 border-slate-900 font-semibold'
-                : 'border-transparent hover:text-slate-900'
-            }`}
-          >
-            Brain Dump
-          </button>
-        </nav>
+        </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <button
@@ -545,462 +1058,33 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main 1440px Multi-Column Workspace */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Sidebar: Workspace Mode Switcher, 7-Axis Life Radar Chart, Task Wheel Picker & Overview */}
-        <aside className="lg:col-span-4 space-y-6">
-          {/* Workspace Mode Switcher (5 modes: Tasks, Goals, Topics, Calendar, Brain Dump) */}
-          <section
-            aria-label="Workspace mode"
-            className="bg-white border border-slate-200 rounded-xl p-1.5 grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-3 gap-1"
-          >
-            <button
-              type="button"
-              onClick={() => setActiveView('tasks')}
-              className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeView === 'tasks'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <ListTodo className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>Tasks ({stats.active})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('goals')}
-              className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeView === 'goals'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <Target className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>Goals</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('topics')}
-              className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeView === 'topics'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <BookOpen className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>Topics ({topics.length})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('calendar')}
-              className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeView === 'calendar'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <CalendarIcon
-                className="w-3.5 h-3.5 shrink-0"
-                aria-hidden="true"
-              />
-              <span>Calendar</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveView('braindump')}
-              className={`py-2 px-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                activeView === 'braindump'
-                  ? 'bg-slate-900 text-white'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>Dump ({brainDumpQueueCount})</span>
-            </button>
-          </section>
-
-          {/* 7-Point Life Balance Radar Chart */}
-          <LifeRadarChart
-            todos={todos}
-            activeCategory={categoryFilter}
-            baseOverrides={radarBaseOverrides}
-            onSelectCategory={(cat) => {
-              setActiveView('tasks');
-              setCategoryFilter(cat);
-            }}
-            onAdjustBaseScore={handleAdjustBaseScore}
-          />
-
-          {/* Task Wheel Picker */}
-          <TaskWheelPicker
-            todos={todos}
-            activeCategory={categoryFilter}
-            selectedFocusTaskId={selectedFocusTaskId}
-            onSelectFocusTask={setSelectedFocusTaskId}
-            onCompleteTask={handleToggleTodo}
-          />
-
-          {/* Progress Summary Surface */}
-          <section
-            aria-label="Daily progress summary"
-            className="bg-white border border-slate-200 rounded-xl p-5"
-          >
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Task Overview
-              </h2>
-              <span className="text-xs font-mono tabular-nums font-semibold text-emerald-700">
-                {stats.completionRate}% done
-              </span>
+      {/* Main Workspace Container */}
+      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-4 flex items-center justify-center">
+        {layoutVersion === 'mobile' ? (
+          <div className="w-full flex items-center justify-center">
+            {renderAndroidMobileVersion()}
+          </div>
+        ) : layoutVersion === 'split' ? (
+          <div className="w-full flex flex-col xl:flex-row gap-6 items-center xl:items-stretch justify-center">
+            <div className="flex-1 min-w-0 w-full">
+              {renderTabletDesktopVersion()}
             </div>
-
-            <div
-              className="mt-3 h-2 w-full bg-slate-100 rounded-full overflow-hidden"
-              role="progressbar"
-              aria-valuenow={stats.completionRate}
-              aria-valuemin={0}
-              aria-valuemax={100}
-            >
-              <div
-                className="h-full bg-emerald-600 transition-transform duration-200 origin-left"
-                style={{
-                  transform: `scaleX(${stats.completionRate / 100})`,
-                }}
-              />
+            <div className="shrink-0 flex items-center justify-center">
+              {renderAndroidMobileVersion()}
             </div>
-
-            <dl className="mt-4 pt-4 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
-              <div>
-                <dt className="text-xs text-slate-500">Active</dt>
-                <dd
-                  data-testid="stat-active"
-                  className="mt-0.5 text-lg font-bold font-mono tabular-nums text-slate-900"
-                >
-                  {stats.active}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-500">Completed</dt>
-                <dd
-                  data-testid="stat-completed"
-                  className="mt-0.5 text-lg font-bold font-mono tabular-nums text-emerald-700"
-                >
-                  {stats.completed}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-slate-500">High Prio</dt>
-                <dd
-                  data-testid="stat-high-priority"
-                  className="mt-0.5 text-lg font-bold font-mono tabular-nums text-red-600"
-                >
-                  {stats.highPriorityActive}
-                </dd>
-              </div>
-            </dl>
-          </section>
-        </aside>
-
-        {/* Main Workspace Column */}
-        <section className="lg:col-span-8 space-y-5">
-          {activeView === 'goals' ? (
-            <GoalPlanner
-              topics={topics}
-              roadmaps={goalRoadmaps}
-              activeTopicId={selectedTopicId}
-              onSelectTopic={(id) => setSelectedTopicId(id)}
-              onUpdateHorizonAnswer={handleUpdateHorizonAnswer}
-              onToggleHorizonCompleted={handleToggleHorizonCompleted}
-              onPushHorizonToTodo={handlePushHorizonToTodo}
-              onOpenTopicDetail={(topicId) => {
-                setSelectedTopicId(topicId);
-                setActiveView('topics');
-              }}
-            />
-          ) : activeView === 'topics' ? (
-            <TopicDashboard
-              topics={topics}
-              roadmaps={goalRoadmaps}
-              selectedTopicId={selectedTopicId}
-              onSelectTopicId={setSelectedTopicId}
-              onCreateTopic={handleCreateTopic}
-              onUpdateProgress={handleUpdateTopicProgress}
-              onAddResource={handleAddTopicResource}
-              onToggleResource={handleToggleTopicResource}
-              onDeleteResource={handleDeleteTopicResource}
-              onNavigateToLifeArea={(area) => {
-                setCategoryFilter(area);
-                setActiveView('tasks');
-              }}
-              onOpenGoalPlanner={(topicId) => {
-                setSelectedTopicId(topicId);
-                setActiveView('goals');
-              }}
-              onToggleHorizonCompleted={handleToggleHorizonCompleted}
-            />
-          ) : activeView === 'calendar' ? (
-            <CalendarWorkspace
-              todos={todos}
-              onAddTodoOnDate={handleAddTodo}
-              onToggleTodo={handleToggleTodo}
-            />
-          ) : activeView === 'braindump' ? (
-            <BrainDumpSwiper
-              items={brainDumpItems}
-              onAddDumpItems={handleAddDumpItems}
-              onSwipeRight={handleSwipeRight}
-              onSwipeLeft={handleSwipeLeft}
-              onRestoreToDeck={handleRestoreToDeck}
-              onDeleteDumpItem={handleDeleteDumpItem}
-              onSwitchToTodoList={() => setActiveView('tasks')}
-            />
-          ) : (
-            <>
-              {/* Page Header & Contextual Actions */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">
-                    {categoryFilter === 'All' ? 'All Life Areas' : `${categoryFilter} Tasks`}
-                  </h1>
-                  <p className="text-sm text-slate-600 mt-0.5">
-                    {stats.active === 0
-                      ? 'All caught up! Add a new task below or swipe from your Brain Dump.'
-                      : `You have ${stats.active} active ${
-                          stats.active === 1 ? 'task' : 'tasks'
-                        } across your 7 core areas.`}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('goals')}
-                    className="px-3 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-                  >
-                    <Target className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-                    <span>Goals (5Y→1W)</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('topics')}
-                    className="px-3 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-                  >
-                    <BookOpen className="w-3.5 h-3.5 text-slate-600" aria-hidden="true" />
-                    <span>Topic Dashboard ({topics.length})</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('calendar')}
-                    className="px-3 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-                  >
-                    <CalendarIcon className="w-3.5 h-3.5 text-blue-600" aria-hidden="true" />
-                    <span>Calendar</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setActiveView('braindump')}
-                    className="px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-                  >
-                    <Layers className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>Open Brain Dump ({brainDumpQueueCount})</span>
-                  </button>
-
-                  {stats.completed > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleClearCompleted}
-                      className="px-3 py-2 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
-                      <span>Clear Completed ({stats.completed})</span>
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={handleResetDemo}
-                    className="px-3 py-2 text-xs font-medium text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" aria-hidden="true" />
-                    <span>Reset Sample Tasks</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Interactive 7-Area Filter Bar */}
-              <div
-                role="group"
-                aria-label="Filter by life focus area"
-                className="flex flex-wrap items-center gap-1.5 bg-white border border-slate-200 rounded-xl p-2"
-              >
-                {CATEGORIES_WITH_ALL.map((area) => {
-                  const isActive = categoryFilter === area;
-                  return (
-                    <button
-                      key={area}
-                      type="button"
-                      onClick={() => setCategoryFilter(area)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                        isActive
-                          ? 'bg-slate-900 text-white'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                      }`}
-                    >
-                      {area === 'All' ? 'All Areas' : area}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Quick Add Task Bar */}
-              <QuickAddTask
-                defaultCategory={categoryFilter === 'All' ? 'Portfolio' : categoryFilter}
-                onAdd={handleAddTodo}
-              />
-
-              {/* Search, Status Tabs, and Sort Toolbar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-3">
-                <div
-                  role="group"
-                  aria-label="Filter tasks by completion status"
-                  className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg self-start"
-                >
-                  {(
-                    [
-                      { id: 'all', label: `All (${stats.total})` },
-                      { id: 'active', label: `Active (${stats.active})` },
-                      { id: 'completed', label: `Completed (${stats.completed})` },
-                    ] as const
-                  ).map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setStatusFilter(tab.id)}
-                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                        statusFilter === tab.id
-                          ? 'bg-white text-slate-900 shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex flex-1 sm:max-w-md items-center gap-2">
-                  <div className="relative flex-1">
-                    <Search
-                      className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-                      aria-hidden="true"
-                    />
-                    <label htmlFor="search-tasks" className="sr-only">
-                      Search tasks
-                    </label>
-                    <input
-                      id="search-tasks"
-                      type="search"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search tasks or notes..."
-                      className="w-full pl-9 pr-3 py-1.5 text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-400"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <SlidersHorizontal
-                      className="w-3.5 h-3.5 text-slate-400 hidden sm:inline"
-                      aria-hidden="true"
-                    />
-                    <label htmlFor="sort-tasks" className="sr-only">
-                      Sort tasks by
-                    </label>
-                    <select
-                      id="sort-tasks"
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as SortOption)}
-                      className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-slate-400"
-                    >
-                      <option value="dueDate">Sort: Due Date</option>
-                      <option value="priority">Sort: Priority</option>
-                      <option value="created">Sort: Newest</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Task List Container */}
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                {visibleTodos.length > 0 ? (
-                  <div divide-y="true" role="list" aria-label="Task list">
-                    {visibleTodos.map((todo) => (
-                      <TaskRow
-                        key={todo.id}
-                        todo={todo}
-                        isFocused={selectedFocusTaskId === todo.id}
-                        onToggle={handleToggleTodo}
-                        onDelete={handleDeleteTodo}
-                        onUpdate={handleUpdateTodo}
-                        onAddSubtask={handleAddSubtask}
-                        onToggleSubtask={handleToggleSubtask}
-                        onDeleteSubtask={handleDeleteSubtask}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-14 px-6 text-center">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
-                      {todos.length === 0 ? (
-                        <ListTodo className="w-5 h-5" aria-hidden="true" />
-                      ) : (
-                        <CheckCircle2 className="w-5 h-5" aria-hidden="true" />
-                      )}
-                    </div>
-                    <h3 className="text-sm font-semibold text-slate-900">
-                      {todos.length === 0
-                        ? 'Your task list is empty'
-                        : 'No matching tasks found'}
-                    </h3>
-                    <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-                      {todos.length === 0
-                        ? 'Add your first task above to start organizing your day.'
-                        : 'Try clearing your search query or switching the active status and life area filters.'}
-                    </p>
-                    {(statusFilter !== 'all' ||
-                      categoryFilter !== 'All' ||
-                      priorityFilter !== 'All' ||
-                      searchQuery.trim() !== '') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setStatusFilter('all');
-                          setCategoryFilter('All');
-                          setPriorityFilter('All');
-                          setSearchQuery('');
-                        }}
-                        className="mt-4 px-3.5 py-2 text-xs font-medium text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Clear All Filters
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </section>
+          </div>
+        ) : (
+          <div className="w-full max-w-[1320px] mx-auto">
+            {renderTabletDesktopVersion()}
+          </div>
+        )}
       </main>
 
       {/* Quiet Footer */}
       <footer className="mt-auto border-t border-slate-200 bg-white py-4 px-6">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
           <span>
-            FocusFlow — Portfolio · Karma · Knowledge · Personality · Social · Strength · Aesthetics
+            FocusFlow — Tablet/Desktop (Left Nav) & Android 9:16 (Bottom Nav)
           </span>
           <span className="font-mono tabular-nums">
             {stats.completed} of {stats.total} tasks completed

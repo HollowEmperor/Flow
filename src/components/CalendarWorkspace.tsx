@@ -301,7 +301,7 @@ export const CalendarWorkspace: React.FC<CalendarWorkspaceProps> = ({
   };
 
   return (
-    <div className="space-y-6" data-testid="calendar-workspace-view">
+    <div className="@container space-y-5" data-testid="calendar-workspace-view">
       {/* Confirmation Modal for Mutating/Destructive Google Calendar Actions */}
       {pendingConfirm && (
         <div
@@ -363,12 +363,12 @@ export const CalendarWorkspace: React.FC<CalendarWorkspaceProps> = ({
       )}
 
       {/* Header & Google Calendar Connection Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200 rounded-xl p-5">
+      <div className="flex flex-col @sm:flex-row @sm:items-center justify-between gap-3 bg-white border border-slate-200 rounded-xl p-4 @sm:p-5">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">
+          <h1 className="text-lg @sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
             Schedule & Google Calendar Sync
           </h1>
-          <p className="text-sm text-slate-600 mt-0.5">
+          <p className="text-xs @sm:text-sm text-slate-600 mt-0.5">
             Plan daily tasks across the month and sync your schedule with Google
             Calendar.
           </p>
@@ -483,11 +483,11 @@ export const CalendarWorkspace: React.FC<CalendarWorkspaceProps> = ({
       )}
 
       {/* Calendar Grid & Selected Day Detail Split */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 @lg:grid-cols-12 gap-5 items-start">
         {/* Monthly Calendar Grid (7 cols) */}
         <section
           aria-label="Monthly calendar"
-          className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5"
+          className="@lg:col-span-7 bg-white border border-slate-200 rounded-xl p-3.5 @sm:p-5"
         >
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-slate-900 font-display">
@@ -548,7 +548,7 @@ export const CalendarWorkspace: React.FC<CalendarWorkspaceProps> = ({
                   type="button"
                   onClick={() => setSelectedDateIso(cell.dateIso!)}
                   data-testid={`calendar-day-${cell.dateIso}`}
-                  className={`h-16 p-1.5 rounded-lg border text-left flex flex-col justify-between transition-colors cursor-pointer ${
+                  className={`h-12 @sm:h-16 p-1 @sm:p-1.5 rounded-lg border text-left flex flex-col justify-between transition-colors cursor-pointer ${
                     isSelected
                       ? 'bg-slate-900 text-white border-slate-900'
                       : isToday
@@ -612,7 +612,7 @@ export const CalendarWorkspace: React.FC<CalendarWorkspaceProps> = ({
         {/* Selected Date Agenda & Google Calendar Sync Panel (5 cols) */}
         <section
           aria-label="Selected date schedule"
-          className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5 space-y-5"
+          className="@lg:col-span-5 bg-white border border-slate-200 rounded-xl p-4 @sm:p-5 space-y-4"
         >
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">

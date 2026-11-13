@@ -1339,3 +1339,41 @@ export function getInitialSeedGoalRoadmaps(): TopicGoalRoadmap[] {
   ];
 }
 
+// ============================================================================
+// Dual Version Layout Configuration (Tablet/Desktop Left Nav vs Android 9:16 Bottom Nav)
+// ============================================================================
+
+export type AppLayoutVersion = 'tablet' | 'mobile' | 'split';
+
+export type WorkspaceTab =
+  | 'tasks'
+  | 'goals'
+  | 'topics'
+  | 'calendar'
+  | 'braindump';
+
+export interface LayoutSpec {
+  version: 'tablet' | 'mobile';
+  navPosition: 'left' | 'bottom';
+  aspectRatio: '16:10' | '9:16';
+  label: string;
+}
+
+export function getLayoutSpec(version: 'tablet' | 'mobile'): LayoutSpec {
+  if (version === 'mobile') {
+    return {
+      version: 'mobile',
+      navPosition: 'bottom',
+      aspectRatio: '9:16',
+      label: 'Android Mobile (9:16 · Bottom Nav)',
+    };
+  }
+  return {
+    version: 'tablet',
+    navPosition: 'left',
+    aspectRatio: '16:10',
+    label: 'Tablet / Desktop (Left Nav)',
+  };
+}
+
+

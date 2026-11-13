@@ -60,9 +60,9 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = ({
       className="bg-white border border-slate-200 rounded-xl p-4 transition-colors focus-within:border-slate-400"
       aria-label="Add new task"
     >
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-        <div className="flex-1 flex items-center gap-2.5">
-          <Plus className="w-5 h-5 text-slate-400 shrink-0" aria-hidden="true" />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex-1 min-w-[200px] flex items-center gap-2">
+          <Plus className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
           <label htmlFor="new-task-title" className="sr-only">
             Task title
           </label>
@@ -74,12 +74,12 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = ({
               setTitle(e.target.value);
               if (error) setError(null);
             }}
-            placeholder="Add a new task... (Press Enter to save)"
-            className="w-full text-sm sm:text-base text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-none"
+            placeholder="Add a new task..."
+            className="w-full text-sm text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-none"
           />
         </div>
 
-        <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+        <div className="flex items-center justify-end gap-1.5 ml-auto">
           <button
             type="button"
             onClick={() => setIsRepeating((prev) => !prev)}

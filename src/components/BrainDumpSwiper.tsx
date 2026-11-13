@@ -150,14 +150,14 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
   const swipeLeftOpacity = Math.min(1, Math.max(0, -dragOffset.x / 90));
 
   return (
-    <div className="space-y-6">
+    <div className="@container space-y-5">
       {/* Header & Instructions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col @sm:flex-row @sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">
+          <h1 className="text-lg @sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
             Brain Dump & Swipe Triage
           </h1>
-          <p className="text-sm text-slate-600 mt-0.5">
+          <p className="text-xs @sm:text-sm text-slate-600 mt-0.5">
             Unload everything on your mind, then swipe{' '}
             <span className="font-semibold text-emerald-700">Right</span> to add to Today&apos;s
             Todo List or <span className="font-semibold text-slate-800">Left</span> to store for
@@ -168,16 +168,16 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
         <button
           type="button"
           onClick={onSwitchToTodoList}
-          className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+          className="px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg transition-colors whitespace-nowrap shrink-0 self-start @sm:self-auto cursor-pointer"
         >
           View Today&apos;s Todo List
         </button>
       </div>
 
       {/* Two-Column Brain Dump Layout: Left Capture + Stored Vault, Right Tinder Swipe Deck */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 @lg:grid-cols-12 gap-5 items-start">
         {/* Column 1 (7 cols): Tinder-Like Swipe Card Deck */}
-        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-6 flex flex-col items-center">
+        <div className="@lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 @sm:p-6 flex flex-col items-center">
           <div className="w-full flex items-center justify-between text-xs text-slate-500 mb-4">
             <span className="font-semibold text-slate-800 flex items-center gap-1.5">
               <Layers className="w-4 h-4 text-slate-500" aria-hidden="true" />
@@ -354,7 +354,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
         </div>
 
         {/* Column 2 (5 cols): Rapid Brain Dump Input Form */}
-        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5">
+        <div className="@lg:col-span-5 bg-white border border-slate-200 rounded-xl p-4 @sm:p-5">
           <h2 className="text-sm font-semibold text-slate-900">
             Quick Brain Dump Capture
           </h2>
@@ -467,7 +467,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
               <div
                 key={item.id}
                 role="listitem"
-                className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors"
+                className="px-4 @sm:px-5 py-3.5 flex flex-col @sm:flex-row @sm:items-center justify-between gap-3 hover:bg-slate-50/60 transition-colors"
               >
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-slate-900 break-words">
