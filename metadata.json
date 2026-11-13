@@ -1,0 +1,6 @@
+{
+  "name": "FocusFlow Tasks",
+  "description": "A clean, fast task planner and todo list with priorities, categories, subtasks, and instant filtering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

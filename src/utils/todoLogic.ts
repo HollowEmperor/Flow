@@ -1,0 +1,1341 @@
+export const LIFE_AREAS = [
+  'Portfolio',
+  'Karma',
+  'Knowledge',
+  'Personality',
+  'Social',
+  'Strength',
+  'Aesthetics',
+] as const;
+
+export type Category = (typeof LIFE_AREAS)[number];
+export type Priority = 'high' | 'medium' | 'low';
+export type StatusFilter = 'all' | 'active' | 'completed';
+export type SortOption = 'dueDate' | 'priority' | 'created';
+
+export interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+export interface TodoItem {
+  id: string;
+  title: string;
+  notes: string;
+  completed: boolean;
+  priority: Priority;
+  category: Category;
+  dueDate: string; // YYYY-MM-DD
+  createdAt: number;
+  subtasks: Subtask[];
+  isRepeating?: boolean;
+  streakCount?: number;
+  lastCompletedDate?: string;
+}
+
+export type TopicResourceType = 'YouTube' | 'Udemy' | 'App' | 'Article' | 'Book';
+
+export interface TopicResource {
+  id: string;
+  title: string;
+  type: TopicResourceType;
+  url: string;
+  completed: boolean;
+}
+
+export interface TopicItem {
+  id: string;
+  title: string;
+  description: string;
+  lifeArea: Category;
+  goalLabel: string;
+  currentUnits: number;
+  targetUnits: number;
+  unitName: string;
+  resources: TopicResource[];
+  createdAt: number;
+}
+
+export interface FilterCriteria {
+  status: StatusFilter;
+  category: Category | 'All';
+  priority: Priority | 'All';
+  searchQuery: string;
+  sortBy: SortOption;
+}
+
+export interface TodoStats {
+  total: number;
+  active: number;
+  completed: number;
+  completionRate: number;
+  highPriorityActive: number;
+  dueTodayActive: number;
+}
+
+export interface RadarAxisMetric {
+  area: Category;
+  score: number; // 0 to 100
+  completedCount: number;
+  activeCount: number;
+  totalCount: number;
+}
+
+export interface RadarVertex {
+  area: Category;
+  score: number;
+  x: number;
+  y: number;
+  axisX: number;
+  axisY: number;
+  labelX: number;
+  labelY: number;
+}
+
+const PRIORITY_WEIGHT: Record<Priority, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
+const LEGACY_CATEGORY_MAP: Record<string, Category> = {
+  Work: 'Portfolio',
+  Personal: 'Personality',
+  Health: 'Strength',
+  Errands: 'Karma',
+};
+
+export function normalizeCategory(raw: string | undefined | null): Category {
+  if (!raw) return 'Portfolio';
+  if ((LIFE_AREAS as readonly string[]).includes(raw)) {
+    return raw as Category;
+  }
+  return LEGACY_CATEGORY_MAP[raw] ?? 'Portfolio';
+}
+
+export function getTodayIsoDate(now: Date = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function createTodoItem(params: {
+  id?: string;
+  title: string;
+  notes?: string;
+  priority?: Priority;
+  category?: Category;
+  dueDate?: string;
+  createdAt?: number;
+  subtasks?: Subtask[];
+  isRepeating?: boolean;
+  streakCount?: number;
+  lastCompletedDate?: string;
+}): TodoItem {
+  const trimmedTitle = params.title.trim();
+  if (!trimmedTitle) {
+    throw new Error('Task title is required');
+  }
+  const isRepeating = Boolean(params.isRepeating);
+  const streakCount = Math.max(0, Math.floor(params.streakCount ?? 0));
+  return {
+    id: params.id ?? `todo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    title: trimmedTitle,
+    notes: (params.notes ?? '').trim(),
+    completed: false,
+    priority: params.priority ?? 'medium',
+    category: normalizeCategory(params.category),
+    dueDate: params.dueDate || getTodayIsoDate(),
+    createdAt: params.createdAt ?? Date.now(),
+    subtasks: params.subtasks ?? [],
+    isRepeating,
+    streakCount,
+    lastCompletedDate: params.lastCompletedDate,
+  };
+}
+
+export function toggleTodoCompletion(
+  todos: TodoItem[],
+  id: string,
+  todayIso: string = getTodayIsoDate()
+): TodoItem[] {
+  return todos.map((todo) => {
+    if (todo.id !== id) return todo;
+    const nextCompleted = !todo.completed;
+    const currentStreak = todo.streakCount ?? 0;
+
+    if (todo.isRepeating) {
+      if (nextCompleted) {
+        return {
+          ...todo,
+          completed: true,
+          streakCount: currentStreak + 1,
+          lastCompletedDate: todayIso,
+        };
+      } else {
+        return {
+          ...todo,
+          completed: false,
+          streakCount: Math.max(0, currentStreak - 1),
+        };
+      }
+    }
+
+    return { ...todo, completed: nextCompleted };
+  });
+}
+
+export function updateTodoItem(
+  todos: TodoItem[],
+  id: string,
+  updates: Partial<
+    Pick<
+      TodoItem,
+      | 'title'
+      | 'notes'
+      | 'priority'
+      | 'category'
+      | 'dueDate'
+      | 'isRepeating'
+      | 'streakCount'
+    >
+  >
+): TodoItem[] {
+  return todos.map((todo) => {
+    if (todo.id !== id) return todo;
+    const nextTitle = updates.title !== undefined ? updates.title.trim() : todo.title;
+    if (!nextTitle) return todo;
+    return {
+      ...todo,
+      ...updates,
+      title: nextTitle,
+    };
+  });
+}
+
+export function deleteTodoItem(todos: TodoItem[], id: string): TodoItem[] {
+  return todos.filter((todo) => todo.id !== id);
+}
+
+export function clearCompletedTodos(todos: TodoItem[]): TodoItem[] {
+  return todos.filter((todo) => !todo.completed);
+}
+
+export function addSubtask(
+  todos: TodoItem[],
+  todoId: string,
+  subtaskTitle: string,
+  subtaskId?: string
+): TodoItem[] {
+  const clean = subtaskTitle.trim();
+  if (!clean) return todos;
+  return todos.map((todo) => {
+    if (todo.id !== todoId) return todo;
+    const newSubtask: Subtask = {
+      id: subtaskId ?? `sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: clean,
+      completed: false,
+    };
+    return {
+      ...todo,
+      subtasks: [...todo.subtasks, newSubtask],
+    };
+  });
+}
+
+export function toggleSubtask(
+  todos: TodoItem[],
+  todoId: string,
+  subtaskId: string
+): TodoItem[] {
+  return todos.map((todo) => {
+    if (todo.id !== todoId) return todo;
+    return {
+      ...todo,
+      subtasks: todo.subtasks.map((st) =>
+        st.id === subtaskId ? { ...st, completed: !st.completed } : st
+      ),
+    };
+  });
+}
+
+export function deleteSubtask(
+  todos: TodoItem[],
+  todoId: string,
+  subtaskId: string
+): TodoItem[] {
+  return todos.map((todo) => {
+    if (todo.id !== todoId) return todo;
+    return {
+      ...todo,
+      subtasks: todo.subtasks.filter((st) => st.id !== subtaskId),
+    };
+  });
+}
+
+export function filterAndSortTodos(
+  todos: TodoItem[],
+  criteria: FilterCriteria
+): TodoItem[] {
+  const query = criteria.searchQuery.trim().toLowerCase();
+
+  const filtered = todos.filter((todo) => {
+    if (criteria.status === 'active' && todo.completed) return false;
+    if (criteria.status === 'completed' && !todo.completed) return false;
+    if (criteria.category !== 'All' && todo.category !== criteria.category) return false;
+    if (criteria.priority !== 'All' && todo.priority !== criteria.priority) return false;
+
+    if (query) {
+      const inTitle = todo.title.toLowerCase().includes(query);
+      const inNotes = todo.notes.toLowerCase().includes(query);
+      const inCategory = todo.category.toLowerCase().includes(query);
+      const inSubtasks = todo.subtasks.some((s) =>
+        s.title.toLowerCase().includes(query)
+      );
+      if (!inTitle && !inNotes && !inCategory && !inSubtasks) return false;
+    }
+
+    return true;
+  });
+
+  return [...filtered].sort((a, b) => {
+    if (a.completed !== b.completed) {
+      return a.completed ? 1 : -1;
+    }
+
+    if (criteria.sortBy === 'priority') {
+      const diff = PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority];
+      if (diff !== 0) return diff;
+      return a.dueDate.localeCompare(b.dueDate);
+    }
+
+    if (criteria.sortBy === 'dueDate') {
+      const dateCompare = a.dueDate.localeCompare(b.dueDate);
+      if (dateCompare !== 0) return dateCompare;
+      return PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority];
+    }
+
+    return b.createdAt - a.createdAt;
+  });
+}
+
+export function computeTodoStats(
+  todos: TodoItem[],
+  todayIso: string = getTodayIsoDate()
+): TodoStats {
+  const total = todos.length;
+  const completed = todos.filter((t) => t.completed).length;
+  const active = total - completed;
+  const completionRate = total === 0 ? 0 : Math.round((completed / total) * 100);
+  const highPriorityActive = todos.filter(
+    (t) => !t.completed && t.priority === 'high'
+  ).length;
+  const dueTodayActive = todos.filter(
+    (t) => !t.completed && t.dueDate <= todayIso
+  ).length;
+
+  return {
+    total,
+    active,
+    completed,
+    completionRate,
+    highPriorityActive,
+    dueTodayActive,
+  };
+}
+
+const DEFAULT_BASE_SCORES: Record<Category, number> = {
+  Portfolio: 55,
+  Karma: 50,
+  Knowledge: 60,
+  Personality: 52,
+  Social: 48,
+  Strength: 58,
+  Aesthetics: 50,
+};
+
+/**
+ * Computes a 0..100 score for each of the 7 Life Areas:
+ * Portfolio, Karma, Knowledge, Personality, Social, Strength, Aesthetics.
+ */
+export function computeRadarScores(
+  todos: TodoItem[],
+  baseOverrides: Partial<Record<Category, number>> = {}
+): RadarAxisMetric[] {
+  return LIFE_AREAS.map((area) => {
+    const areaTodos = todos.filter((t) => normalizeCategory(t.category) === area);
+    const totalCount = areaTodos.length;
+    const completedCount = areaTodos.filter((t) => t.completed).length;
+    const activeCount = totalCount - completedCount;
+
+    const base = baseOverrides[area] ?? DEFAULT_BASE_SCORES[area];
+    const rawScore = base + completedCount * 18 + activeCount * 5;
+    const score = Math.max(10, Math.min(100, Math.round(rawScore)));
+
+    return {
+      area,
+      score,
+      completedCount,
+      activeCount,
+      totalCount,
+    };
+  });
+}
+
+/**
+ * Computes exact SVG polygon coordinates for the 7-point radar chart.
+ */
+export function computeRadarGeometry(
+  metrics: RadarAxisMetric[],
+  cx: number = 140,
+  cy: number = 140,
+  radius: number = 86,
+  labelRadius: number = 114
+): {
+  pointsString: string;
+  vertices: RadarVertex[];
+} {
+  const count = metrics.length;
+  const vertices: RadarVertex[] = metrics.map((m, idx) => {
+    const angleRad = ((-90 + (idx * 360) / count) * Math.PI) / 180;
+    const normalized = Math.max(0, Math.min(100, m.score)) / 100;
+    const r = radius * normalized;
+
+    return {
+      area: m.area,
+      score: m.score,
+      x: Number((cx + r * Math.cos(angleRad)).toFixed(2)),
+      y: Number((cy + r * Math.sin(angleRad)).toFixed(2)),
+      axisX: Number((cx + radius * Math.cos(angleRad)).toFixed(2)),
+      axisY: Number((cy + radius * Math.sin(angleRad)).toFixed(2)),
+      labelX: Number((cx + labelRadius * Math.cos(angleRad)).toFixed(2)),
+      labelY: Number((cy + labelRadius * Math.sin(angleRad)).toFixed(2)),
+    };
+  });
+
+  const pointsString = vertices.map((v) => `${v.x},${v.y}`).join(' ');
+  return { pointsString, vertices };
+}
+
+export function getInitialSeedTodos(todayIso: string = getTodayIsoDate()): TodoItem[] {
+  return [
+    {
+      id: 'seed-1',
+      title: 'Ship Q4 case study and update engineering portfolio repo',
+      notes: 'Include architecture diagrams and latency benchmarks.',
+      completed: false,
+      priority: 'high',
+      category: 'Portfolio',
+      dueDate: todayIso,
+      createdAt: 1731480000000,
+      isRepeating: true,
+      streakCount: 6,
+      subtasks: [
+        { id: 'sub-101', title: 'Record 60-second demo capture', completed: true },
+        { id: 'sub-102', title: 'Write technical postmortem section', completed: false },
+      ],
+    },
+    {
+      id: 'seed-2',
+      title: 'Read 2 chapters of Designing Data-Intensive Applications',
+      notes: 'Take structured synthesis notes on replication and consensus.',
+      completed: true,
+      priority: 'medium',
+      category: 'Knowledge',
+      dueDate: todayIso,
+      createdAt: 1731480100000,
+      isRepeating: true,
+      streakCount: 14,
+      lastCompletedDate: todayIso,
+      subtasks: [],
+    },
+    {
+      id: 'seed-3',
+      title: '45-minute compound strength & mobility session',
+      notes: 'Focus on weighted pull-ups, overhead press, and thoracic mobility.',
+      completed: true,
+      priority: 'high',
+      category: 'Strength',
+      dueDate: todayIso,
+      createdAt: 1731479000000,
+      isRepeating: true,
+      streakCount: 9,
+      lastCompletedDate: todayIso,
+      subtasks: [
+        { id: 'sub-201', title: '10-min dynamic warm-up', completed: true },
+        { id: 'sub-202', title: 'Main strength sets (4x6)', completed: true },
+      ],
+    },
+    {
+      id: 'seed-4',
+      title: 'Mentor junior developer on open-source PR review',
+      notes: 'Walk through test coverage and clean error handling patterns.',
+      completed: false,
+      priority: 'medium',
+      category: 'Karma',
+      dueDate: todayIso,
+      createdAt: 1731480200000,
+      isRepeating: false,
+      streakCount: 0,
+      subtasks: [],
+    },
+    {
+      id: 'seed-5',
+      title: 'Practice 15 minutes of impromptu vocal storytelling',
+      notes: 'Record voice memo focusing on pacing and clarity.',
+      completed: false,
+      priority: 'medium',
+      category: 'Personality',
+      dueDate: todayIso,
+      createdAt: 1731480300000,
+      isRepeating: true,
+      streakCount: 4,
+      subtasks: [],
+    },
+    {
+      id: 'seed-6',
+      title: 'Host Thursday coffee catch-up with design peers',
+      notes: 'Confirm venue and invite two new community members.',
+      completed: false,
+      priority: 'low',
+      category: 'Social',
+      dueDate: todayIso,
+      createdAt: 1731480400000,
+      isRepeating: false,
+      streakCount: 0,
+      subtasks: [],
+    },
+    {
+      id: 'seed-7',
+      title: 'Curate minimalist workspace lighting & desk layout',
+      notes: 'Calibrate warm key light and declutter cable tray.',
+      completed: false,
+      priority: 'low',
+      category: 'Aesthetics',
+      dueDate: todayIso,
+      createdAt: 1731480500000,
+      isRepeating: true,
+      streakCount: 3,
+      subtasks: [],
+    },
+  ];
+}
+
+export interface WheelSpinOutcome {
+  selectedTask: TodoItem;
+  selectedIndex: number;
+  targetRotation: number;
+}
+
+export function getEligibleWheelTasks(
+  todos: TodoItem[],
+  category: Category | 'All' = 'All'
+): TodoItem[] {
+  const activeTodos = todos.filter((t) => !t.completed);
+  if (category === 'All') return activeTodos;
+  const inCategory = activeTodos.filter((t) => t.category === category);
+  return inCategory.length > 0 ? inCategory : activeTodos;
+}
+
+export function calculateWheelSpinResult(
+  tasks: TodoItem[],
+  randomValue: number,
+  currentRotation: number = 0,
+  extraSpins: number = 5
+): WheelSpinOutcome {
+  if (tasks.length === 0) {
+    throw new Error('Cannot spin wheel with no active tasks');
+  }
+  const clampedRandom = Math.max(0, Math.min(0.999999, randomValue));
+  const count = tasks.length;
+  const selectedIndex = Math.floor(clampedRandom * count);
+  const sliceAngle = 360 / count;
+
+  const sliceCenter = (selectedIndex + 0.5) * sliceAngle;
+  const desiredMod = (360 - sliceCenter + 360) % 360;
+  const currentMod = ((currentRotation % 360) + 360) % 360;
+  let delta = (desiredMod - currentMod + 360) % 360;
+  if (delta < 30) {
+    delta += 360;
+  }
+
+  const targetRotation = currentRotation + extraSpins * 360 + delta;
+
+  return {
+    selectedTask: tasks[selectedIndex],
+    selectedIndex,
+    targetRotation,
+  };
+}
+
+export function didTaskTransitionToCompleted(
+  todos: TodoItem[],
+  id: string
+): TodoItem | null {
+  const target = todos.find((t) => t.id === id);
+  if (!target || target.completed) {
+    return null;
+  }
+  return target;
+}
+
+export type BrainDumpStatus = 'queue' | 'stored';
+
+export interface BrainDumpItem {
+  id: string;
+  title: string;
+  notes: string;
+  category: Category;
+  priority: Priority;
+  status: BrainDumpStatus;
+  createdAt: number;
+}
+
+export function parseBrainDumpInput(
+  rawText: string,
+  category: Category = 'Portfolio',
+  priority: Priority = 'medium',
+  baseTimestamp: number = Date.now()
+): BrainDumpItem[] {
+  const lines = rawText
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/^[-*•\d.)]+\s*/, '').trim())
+    .filter((line) => line.length > 0);
+
+  return lines.map((title, idx) => ({
+    id: `dump-${baseTimestamp}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+    title,
+    notes: '',
+    category: normalizeCategory(category),
+    priority,
+    status: 'queue',
+    createdAt: baseTimestamp + idx,
+  }));
+}
+
+export function swipeBrainDumpRight(
+  dumpItems: BrainDumpItem[],
+  todos: TodoItem[],
+  itemId: string,
+  todayIso: string = getTodayIsoDate()
+): {
+  dumpItems: BrainDumpItem[];
+  todos: TodoItem[];
+  addedTodo: TodoItem | null;
+} {
+  const target = dumpItems.find((d) => d.id === itemId);
+  if (!target) {
+    return { dumpItems, todos, addedTodo: null };
+  }
+
+  const addedTodo = createTodoItem({
+    title: target.title,
+    notes: target.notes,
+    category: normalizeCategory(target.category),
+    priority: target.priority,
+    dueDate: todayIso,
+  });
+
+  return {
+    dumpItems: dumpItems.filter((d) => d.id !== itemId),
+    todos: [addedTodo, ...todos],
+    addedTodo,
+  };
+}
+
+export function swipeBrainDumpLeft(
+  dumpItems: BrainDumpItem[],
+  itemId: string
+): BrainDumpItem[] {
+  return dumpItems.map((item) =>
+    item.id === itemId ? { ...item, status: 'stored' } : item
+  );
+}
+
+export function restoreStoredBrainDumpToDeck(
+  dumpItems: BrainDumpItem[],
+  itemId: string
+): BrainDumpItem[] {
+  return dumpItems.map((item) =>
+    item.id === itemId ? { ...item, status: 'queue' } : item
+  );
+}
+
+export function deleteBrainDumpItem(
+  dumpItems: BrainDumpItem[],
+  itemId: string
+): BrainDumpItem[] {
+  return dumpItems.filter((item) => item.id !== itemId);
+}
+
+export function getInitialSeedBrainDump(): BrainDumpItem[] {
+  return [
+    {
+      id: 'dump-seed-1',
+      title: 'Publish interactive UI component library showcase',
+      notes: 'Add live playground links to main portfolio page.',
+      category: 'Portfolio',
+      priority: 'high',
+      status: 'queue',
+      createdAt: 1731481000000,
+    },
+    {
+      id: 'dump-seed-2',
+      title: 'Volunteer for weekend community code workshop',
+      notes: 'Help beginners set up their first TypeScript project.',
+      category: 'Karma',
+      priority: 'medium',
+      status: 'queue',
+      createdAt: 1731481100000,
+    },
+    {
+      id: 'dump-seed-3',
+      title: 'Tailor autumn wool overshirt and organize wardrobe',
+      notes: 'Keep color palette cohesive and donate unused items.',
+      category: 'Aesthetics',
+      priority: 'low',
+      status: 'queue',
+      createdAt: 1731481200000,
+    },
+    {
+      id: 'dump-seed-4',
+      title: 'Summarize key takeaways from distributed systems paper',
+      notes: 'Add flashcards to spaced-repetition deck.',
+      category: 'Knowledge',
+      priority: 'high',
+      status: 'queue',
+      createdAt: 1731481300000,
+    },
+    {
+      id: 'dump-seed-5',
+      title: 'Plan weekend dinner party for close friends',
+      notes: 'Stored for next month when schedule clears up.',
+      category: 'Social',
+      priority: 'low',
+      status: 'stored',
+      createdAt: 1731480500000,
+    },
+  ];
+}
+
+// ============================================================================
+// Topic Dashboard Pure Functions & Seed Data
+// ============================================================================
+
+export function computeTopicProgressPercent(topic: TopicItem): number {
+  if (topic.targetUnits <= 0) return 0;
+  const pct = Math.round((topic.currentUnits / topic.targetUnits) * 100);
+  return Math.max(0, Math.min(100, pct));
+}
+
+export function createTopicItem(params: {
+  id?: string;
+  title: string;
+  description?: string;
+  lifeArea: Category;
+  goalLabel: string;
+  currentUnits?: number;
+  targetUnits: number;
+  unitName?: string;
+  resources?: TopicResource[];
+  createdAt?: number;
+}): TopicItem {
+  const cleanTitle = params.title.trim();
+  if (!cleanTitle) {
+    throw new Error('Topic title is required');
+  }
+  const targetUnits = Math.max(1, Math.floor(params.targetUnits || 10));
+  const currentUnits = Math.max(
+    0,
+    Math.min(targetUnits, Math.floor(params.currentUnits ?? 0))
+  );
+  return {
+    id: params.id ?? `topic-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    title: cleanTitle,
+    description: (params.description ?? '').trim(),
+    lifeArea: normalizeCategory(params.lifeArea),
+    goalLabel: params.goalLabel.trim() || `Complete ${targetUnits} ${params.unitName || 'milestones'}`,
+    currentUnits,
+    targetUnits,
+    unitName: (params.unitName ?? 'modules').trim() || 'modules',
+    resources: params.resources ?? [],
+    createdAt: params.createdAt ?? Date.now(),
+  };
+}
+
+export function updateTopicProgress(
+  topics: TopicItem[],
+  topicId: string,
+  deltaUnits: number
+): TopicItem[] {
+  return topics.map((t) => {
+    if (t.id !== topicId) return t;
+    const nextUnits = Math.max(
+      0,
+      Math.min(t.targetUnits, t.currentUnits + deltaUnits)
+    );
+    return { ...t, currentUnits: nextUnits };
+  });
+}
+
+export function addTopicResource(
+  topics: TopicItem[],
+  topicId: string,
+  resource: {
+    id?: string;
+    title: string;
+    type: TopicResourceType;
+    url: string;
+  }
+): TopicItem[] {
+  const cleanTitle = resource.title.trim();
+  const cleanUrl = resource.url.trim();
+  if (!cleanTitle || !cleanUrl) return topics;
+
+  const formattedUrl =
+    cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
+      ? cleanUrl
+      : `https://${cleanUrl}`;
+
+  return topics.map((t) => {
+    if (t.id !== topicId) return t;
+    const newRes: TopicResource = {
+      id: resource.id ?? `res-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: cleanTitle,
+      type: resource.type,
+      url: formattedUrl,
+      completed: false,
+    };
+    return {
+      ...t,
+      resources: [...t.resources, newRes],
+    };
+  });
+}
+
+export function toggleTopicResourceCompletion(
+  topics: TopicItem[],
+  topicId: string,
+  resourceId: string
+): TopicItem[] {
+  return topics.map((t) => {
+    if (t.id !== topicId) return t;
+    return {
+      ...t,
+      resources: t.resources.map((r) =>
+        r.id === resourceId ? { ...r, completed: !r.completed } : r
+      ),
+    };
+  });
+}
+
+export function deleteTopicResource(
+  topics: TopicItem[],
+  topicId: string,
+  resourceId: string
+): TopicItem[] {
+  return topics.map((t) => {
+    if (t.id !== topicId) return t;
+    return {
+      ...t,
+      resources: t.resources.filter((r) => r.id !== resourceId),
+    };
+  });
+}
+
+export function getInitialSeedTopics(): TopicItem[] {
+  return [
+    {
+      id: 'topic-1',
+      title: 'Full-Stack System Design & Architecture',
+      description:
+        'Master scalable distributed backends, caching layers, and production system case studies.',
+      lifeArea: 'Portfolio',
+      goalLabel: 'Build & document 10 production-grade system architecture modules',
+      currentUnits: 7,
+      targetUnits: 10,
+      unitName: 'modules',
+      createdAt: 1731480000000,
+      resources: [
+        {
+          id: 'res-101',
+          title: 'ByteByteGo — System Design Interview Deep Dive',
+          type: 'YouTube',
+          url: 'https://www.youtube.com/@ByteByteGo',
+          completed: true,
+        },
+        {
+          id: 'res-102',
+          title: 'Mastering Distributed Systems & Microservices Architecture',
+          type: 'Udemy',
+          url: 'https://www.udemy.com/topic/software-architecture/',
+          completed: true,
+        },
+        {
+          id: 'res-103',
+          title: 'Excalidraw Architecture Diagramming Workspace',
+          type: 'App',
+          url: 'https://excalidraw.com',
+          completed: false,
+        },
+      ],
+    },
+    {
+      id: 'topic-2',
+      title: 'Cognitive Science & Mental Models',
+      description:
+        'Deepen decision-making frameworks, probabilistic reasoning, and spaced-repetition synthesis.',
+      lifeArea: 'Knowledge',
+      goalLabel: 'Complete 20 synthesis notes & lecture reviews',
+      currentUnits: 13,
+      targetUnits: 20,
+      unitName: 'notes',
+      createdAt: 1731480100000,
+      resources: [
+        {
+          id: 'res-201',
+          title: 'MIT OpenCourseWare — Cognitive Science & AI Lectures',
+          type: 'YouTube',
+          url: 'https://www.youtube.com/@mitocw',
+          completed: true,
+        },
+        {
+          id: 'res-202',
+          title: 'Obsidian Knowledge Graph & Zettelkasten App',
+          type: 'App',
+          url: 'https://obsidian.md',
+          completed: true,
+        },
+        {
+          id: 'res-203',
+          title: 'Anki Spaced Repetition Flashcards',
+          type: 'App',
+          url: 'https://apps.ankiweb.net',
+          completed: false,
+        },
+      ],
+    },
+    {
+      id: 'topic-3',
+      title: 'Athletic Calisthenics & Mobility Mastery',
+      description:
+        'Progressive overload on weighted calisthenics, handstand balance, and joint longevity.',
+      lifeArea: 'Strength',
+      goalLabel: 'Complete 30 structured strength & mobility sessions',
+      currentUnits: 21,
+      targetUnits: 30,
+      unitName: 'sessions',
+      createdAt: 1731480200000,
+      resources: [
+        {
+          id: 'res-301',
+          title: 'FitnessFAQs — Rings & Scapular Strength Progression',
+          type: 'YouTube',
+          url: 'https://www.youtube.com/@FitnessFAQs',
+          completed: true,
+        },
+        {
+          id: 'res-302',
+          title: 'Complete Mobility & Joint Conditioning Bootcamp',
+          type: 'Udemy',
+          url: 'https://www.udemy.com/topic/fitness/',
+          completed: false,
+        },
+        {
+          id: 'res-303',
+          title: 'Hevy Workout Log & Progressive Overload Tracker',
+          type: 'App',
+          url: 'https://www.hevyapp.com',
+          completed: true,
+        },
+      ],
+    },
+    {
+      id: 'topic-4',
+      title: 'Charisma, Vocal Presence & Public Speaking',
+      description:
+        'Refine storytelling cadence, active listening, and high-stakes presentation delivery.',
+      lifeArea: 'Personality',
+      goalLabel: 'Deliver 12 recorded speaking drills & live talks',
+      currentUnits: 6,
+      targetUnits: 12,
+      unitName: 'drills',
+      createdAt: 1731480300000,
+      resources: [
+        {
+          id: 'res-401',
+          title: 'Stanford GSB — Think Fast, Talk Smart Communication Series',
+          type: 'YouTube',
+          url: 'https://www.youtube.com/@stanfordgsb',
+          completed: true,
+        },
+        {
+          id: 'res-402',
+          title: 'Executive Public Speaking & Storytelling Masterclass',
+          type: 'Udemy',
+          url: 'https://www.udemy.com/topic/public-speaking/',
+          completed: false,
+        },
+      ],
+    },
+    {
+      id: 'topic-5',
+      title: 'Industrial Design, Typography & Minimalist Spaces',
+      description:
+        'Study Swiss typographic grids, interior lighting composition, and cohesive personal style.',
+      lifeArea: 'Aesthetics',
+      goalLabel: 'Complete 8 design studies & spatial audits',
+      currentUnits: 5,
+      targetUnits: 8,
+      unitName: 'studies',
+      createdAt: 1731480400000,
+      resources: [
+        {
+          id: 'res-501',
+          title: 'The Futur — Typography, Grid Systems & Visual Hierarchy',
+          type: 'YouTube',
+          url: 'https://www.youtube.com/@thefutur',
+          completed: true,
+        },
+        {
+          id: 'res-502',
+          title: 'Are.na Visual Research & Moodboard App',
+          type: 'App',
+          url: 'https://www.are.na',
+          completed: false,
+        },
+      ],
+    },
+  ];
+}
+
+// ============================================================================
+// Multi-Horizon Goal Planner (Zoom-Out 5Y -> Tunnel-Vision 1W) Connected to Topics
+// ============================================================================
+
+export const GOAL_HORIZONS = [
+  '5_year',
+  '3_year',
+  '1_year',
+  '4_month',
+  '1_month',
+  '1_week',
+] as const;
+
+export type GoalHorizonKey = (typeof GOAL_HORIZONS)[number];
+
+export interface GoalHorizonConfig {
+  key: GoalHorizonKey;
+  label: string;
+  shortLabel: string;
+  zoomLevel: string;
+  promptQuestion: string;
+  unitWeight: number;
+}
+
+export const GOAL_HORIZON_PROMPTS: Record<GoalHorizonKey, GoalHorizonConfig> = {
+  '5_year': {
+    key: '5_year',
+    label: '5-Year Goal',
+    shortLabel: '5 Years',
+    zoomLevel: 'Zoom Out · Macro Vision',
+    promptQuestion:
+      'Zoom out 5 years: What does ultimate mastery, impact, and identity look like for this topic?',
+    unitWeight: 3,
+  },
+  '3_year': {
+    key: '3_year',
+    label: '3-Year Goal',
+    shortLabel: '3 Years',
+    zoomLevel: 'Strategic Anchor',
+    promptQuestion:
+      'At the 3-year mark: What major capability, portfolio asset, or milestone proves you are halfway there?',
+    unitWeight: 2,
+  },
+  '1_year': {
+    key: '1_year',
+    label: '1-Year Goal',
+    shortLabel: '1 Year',
+    zoomLevel: 'Annual Breakthrough',
+    promptQuestion:
+      '1 year from today: What concrete, measurable outcome must be finished to make this year a success?',
+    unitWeight: 2,
+  },
+  '4_month': {
+    key: '4_month',
+    label: '4-Month Goal',
+    shortLabel: '4 Months',
+    zoomLevel: 'Quarterly Sprint',
+    promptQuestion:
+      'Next 4 months: What focused project or skill sprint will build the strongest momentum?',
+    unitWeight: 1,
+  },
+  '1_month': {
+    key: '1_month',
+    label: '1-Month Goal',
+    shortLabel: '1 Month',
+    zoomLevel: '30-Day Deliverable',
+    promptQuestion:
+      'This month: What specific deliverables or modules will you complete in the next 30 days?',
+    unitWeight: 1,
+  },
+  '1_week': {
+    key: '1_week',
+    label: '1-Week Goal',
+    shortLabel: '1 Week',
+    zoomLevel: 'Tunnel Vision · Immediate Execution',
+    promptQuestion:
+      'Tunnel vision for the next 7 days: What exact actions will you execute this week with zero distractions?',
+    unitWeight: 1,
+  },
+};
+
+export interface GoalHorizonStep {
+  horizon: GoalHorizonKey;
+  answer: string;
+  completed: boolean;
+}
+
+export interface TopicGoalRoadmap {
+  id: string;
+  topicId: string;
+  lifeArea: Category;
+  updatedAt: number;
+  steps: Record<GoalHorizonKey, GoalHorizonStep>;
+}
+
+export function createTopicGoalRoadmap(params: {
+  id?: string;
+  topicId: string;
+  lifeArea: Category;
+  answers?: Partial<Record<GoalHorizonKey, string>>;
+  completedMap?: Partial<Record<GoalHorizonKey, boolean>>;
+  updatedAt?: number;
+}): TopicGoalRoadmap {
+  const steps = {} as Record<GoalHorizonKey, GoalHorizonStep>;
+  for (const key of GOAL_HORIZONS) {
+    steps[key] = {
+      horizon: key,
+      answer: (params.answers?.[key] ?? '').trim(),
+      completed: Boolean(params.completedMap?.[key]),
+    };
+  }
+  return {
+    id: params.id ?? `roadmap-${params.topicId}`,
+    topicId: params.topicId,
+    lifeArea: normalizeCategory(params.lifeArea),
+    updatedAt: params.updatedAt ?? Date.now(),
+    steps,
+  };
+}
+
+/**
+ * Updates a prompt answer for a specific horizon on a topic's goal roadmap.
+ */
+export function updateGoalHorizonAnswer(
+  roadmaps: TopicGoalRoadmap[],
+  topicId: string,
+  horizon: GoalHorizonKey,
+  answer: string
+): TopicGoalRoadmap[] {
+  return roadmaps.map((rm) => {
+    if (rm.topicId !== topicId) return rm;
+    return {
+      ...rm,
+      updatedAt: Date.now(),
+      steps: {
+        ...rm.steps,
+        [horizon]: {
+          ...rm.steps[horizon],
+          answer,
+        },
+      },
+    };
+  });
+}
+
+/**
+ * Toggles completion of a horizon goal step AND synchronizes the linked
+ * TopicItem's progress bar (currentUnits) by the horizon's unitWeight.
+ */
+export function toggleGoalHorizonStepWithTopicSync(
+  roadmaps: TopicGoalRoadmap[],
+  topics: TopicItem[],
+  topicId: string,
+  horizon: GoalHorizonKey
+): {
+  roadmaps: TopicGoalRoadmap[];
+  topics: TopicItem[];
+} {
+  const targetRoadmap = roadmaps.find((r) => r.topicId === topicId);
+  if (!targetRoadmap) {
+    return { roadmaps, topics };
+  }
+
+  const currentStep = targetRoadmap.steps[horizon];
+  const nextCompleted = !currentStep.completed;
+  const weight = GOAL_HORIZON_PROMPTS[horizon].unitWeight;
+  const deltaUnits = nextCompleted ? weight : -weight;
+
+  const updatedRoadmaps = roadmaps.map((rm) => {
+    if (rm.topicId !== topicId) return rm;
+    return {
+      ...rm,
+      updatedAt: Date.now(),
+      steps: {
+        ...rm.steps,
+        [horizon]: {
+          ...currentStep,
+          completed: nextCompleted,
+        },
+      },
+    };
+  });
+
+  const updatedTopics = updateTopicProgress(topics, topicId, deltaUnits);
+
+  return {
+    roadmaps: updatedRoadmaps,
+    topics: updatedTopics,
+  };
+}
+
+export function computeRoadmapCompletionStats(roadmap: TopicGoalRoadmap): {
+  completedHorizons: number;
+  answeredHorizons: number;
+  totalHorizons: number;
+  percentCompleted: number;
+} {
+  const totalHorizons = GOAL_HORIZONS.length;
+  let completedHorizons = 0;
+  let answeredHorizons = 0;
+  for (const key of GOAL_HORIZONS) {
+    const step = roadmap.steps[key];
+    if (step?.answer.trim()) answeredHorizons++;
+    if (step?.completed) completedHorizons++;
+  }
+  return {
+    completedHorizons,
+    answeredHorizons,
+    totalHorizons,
+    percentCompleted: Math.round((completedHorizons / totalHorizons) * 100),
+  };
+}
+
+export function getInitialSeedGoalRoadmaps(): TopicGoalRoadmap[] {
+  return [
+    createTopicGoalRoadmap({
+      id: 'roadmap-topic-1',
+      topicId: 'topic-1',
+      lifeArea: 'Portfolio',
+      answers: {
+        '5_year': 'Principal Distributed Systems Architect leading high-scale global cloud platforms.',
+        '3_year': 'Staff Engineer owning core real-time data pipelines and open-source benchmarks.',
+        '1_year': 'Publish 10 production architecture case studies and pass senior system design loops.',
+        '4_month': 'Build and benchmark a distributed Raft key-value store and event-driven queue.',
+        '1_month': 'Complete 3 architecture deep-dive modules on caching, sharding, and replication.',
+        '1_week': 'Finish the Excalidraw diagram and write the replication latency benchmark report.',
+      },
+      completedMap: {
+        '5_year': false,
+        '3_year': false,
+        '1_year': false,
+        '4_month': true,
+        '1_month': true,
+        '1_week': true,
+      },
+      updatedAt: 1731480000000,
+    }),
+    createTopicGoalRoadmap({
+      id: 'roadmap-topic-2',
+      topicId: 'topic-2',
+      lifeArea: 'Knowledge',
+      answers: {
+        '5_year': 'Build a 2,000-node interconnected Zettelkasten across computer science, economics, and cognitive psychology.',
+        '3_year': 'Publish a synthesized handbook of mental models and probabilistic decision-making.',
+        '1_year': 'Complete 20 university-grade lecture series with permanent spaced-repetition notes.',
+        '4_month': 'Finish MIT Cognitive Science lectures and synthesize 8 core chapters.',
+        '1_month': 'Write 4 atomic synthesis notes and review Anki deck daily.',
+        '1_week': 'Summarize 2 chapters of Designing Data-Intensive Applications into Obsidian.',
+      },
+      completedMap: {
+        '5_year': false,
+        '3_year': false,
+        '1_year': false,
+        '4_month': true,
+        '1_month': true,
+        '1_week': false,
+      },
+      updatedAt: 1731480100000,
+    }),
+    createTopicGoalRoadmap({
+      id: 'roadmap-topic-3',
+      topicId: 'topic-3',
+      lifeArea: 'Strength',
+      answers: {
+        '5_year': 'Maintain effortless ring strength, full mobility, and peak cardiovascular conditioning year-round.',
+        '3_year': 'Hold a 30-second freestanding handstand and strict ring muscle-ups for reps.',
+        '1_year': 'Complete 150 structured calisthenics and mobility sessions with zero injury.',
+        '4_month': 'Add +15kg to weighted pull-ups and unlock full pancake thoracic mobility.',
+        '1_month': 'Complete 12 compound strength & mobility sessions.',
+        '1_week': 'Hit 3 progressive overload strength workouts and 2 dedicated 20-minute mobility flows.',
+      },
+      completedMap: {
+        '5_year': false,
+        '3_year': false,
+        '1_year': false,
+        '4_month': true,
+        '1_month': true,
+        '1_week': true,
+      },
+      updatedAt: 1731480200000,
+    }),
+    createTopicGoalRoadmap({
+      id: 'roadmap-topic-4',
+      topicId: 'topic-4',
+      lifeArea: 'Personality',
+      answers: {
+        '5_year': 'Keynote speaker and charismatic communicator able to articulate complex ideas with warmth and clarity.',
+        '3_year': 'Deliver 10 conference talks and host regular technical roundtables.',
+        '1_year': 'Complete 12 recorded storytelling and impromptu speaking drills.',
+        '4_month': 'Finish the Stanford GSB communication series and practice vocal pacing weekly.',
+        '1_month': 'Record 4 5-minute unscripted explanations of technical architectures.',
+        '1_week': 'Complete two 15-minute impromptu vocal storytelling drills and review playback.',
+      },
+      completedMap: {
+        '5_year': false,
+        '3_year': false,
+        '1_year': false,
+        '4_month': false,
+        '1_month': true,
+        '1_week': true,
+      },
+      updatedAt: 1731480300000,
+    }),
+    createTopicGoalRoadmap({
+      id: 'roadmap-topic-5',
+      topicId: 'topic-5',
+      lifeArea: 'Aesthetics',
+      answers: {
+        '5_year': 'Design and live in a serene, museum-grade minimalist studio with timeless personal aesthetics.',
+        '3_year': 'Master Swiss editorial typography, industrial design principles, and architectural lighting.',
+        '1_year': 'Complete 8 spatial & typographic design studies and curate a capsule wardrobe.',
+        '4_month': 'Redesign home office ergonomics, warm lighting, and acoustic treatment.',
+        '1_month': 'Complete 2 typography grid studies and declutter desk cable architecture.',
+        '1_week': 'Calibrate warm key light and mount under-desk cable management tray.',
+      },
+      completedMap: {
+        '5_year': false,
+        '3_year': false,
+        '1_year': false,
+        '4_month': false,
+        '1_month': true,
+        '1_week': false,
+      },
+      updatedAt: 1731480400000,
+    }),
+  ];
+}
+
