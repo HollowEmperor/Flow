@@ -12,6 +12,14 @@ export type Category = (typeof LIFE_AREAS)[number];
 export type Priority = 'high' | 'medium' | 'low';
 export type StatusFilter = 'all' | 'active' | 'completed';
 export type SortOption = 'dueDate' | 'priority' | 'created';
+export type EisenhowerQuadrant =
+  | 'do_first'
+  | 'schedule'
+  | 'delegate'
+  | 'eliminate';
+
+export type TaskViewMode = 'list' | 'kanban' | 'timeline';
+export type KanbanStage = 'todo' | 'in_progress' | 'done';
 
 export interface Subtask {
   id: string;
@@ -32,6 +40,9 @@ export interface TodoItem {
   isRepeating?: boolean;
   streakCount?: number;
   lastCompletedDate?: string;
+  quadrant?: EisenhowerQuadrant;
+  scheduledHour?: number; // 0..23 hour slot for Hourly Calendar view
+  kanbanStage?: KanbanStage;
 }
 
 export type TopicResourceType = 'YouTube' | 'Udemy' | 'App' | 'Article' | 'Book';
@@ -133,6 +144,9 @@ export function createTodoItem(params: {
   isRepeating?: boolean;
   streakCount?: number;
   lastCompletedDate?: string;
+  quadrant?: EisenhowerQuadrant;
+  scheduledHour?: number;
+  kanbanStage?: KanbanStage;
 }): TodoItem {
   const trimmedTitle = params.title.trim();
   if (!trimmedTitle) {
@@ -140,11 +154,17 @@ export function createTodoItem(params: {
   }
   const isRepeating = Boolean(params.isRepeating);
   const streakCount = Math.max(0, Math.floor(params.streakCount ?? 0));
+  const scheduledHour =
+    params.scheduledHour !== undefined &&
+    params.scheduledHour >= 0 &&
+    params.scheduledHour <= 23
+      ? Math.floor(params.scheduledHour)
+      : undefined;
   return {
     id: params.id ?? `todo-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     title: trimmedTitle,
     notes: (params.notes ?? '').trim(),
-    completed: false,
+    completed: params.kanbanStage === 'done',
     priority: params.priority ?? 'medium',
     category: normalizeCategory(params.category),
     dueDate: params.dueDate || getTodayIsoDate(),
@@ -153,6 +173,9 @@ export function createTodoItem(params: {
     isRepeating,
     streakCount,
     lastCompletedDate: params.lastCompletedDate,
+    quadrant: params.quadrant,
+    scheduledHour,
+    kanbanStage: params.kanbanStage ?? 'todo',
   };
 }
 
@@ -200,6 +223,8 @@ export function updateTodoItem(
       | 'dueDate'
       | 'isRepeating'
       | 'streakCount'
+      | 'quadrant'
+      | 'scheduledHour'
     >
   >
 ): TodoItem[] {
@@ -432,6 +457,8 @@ export function getInitialSeedTodos(todayIso: string = getTodayIsoDate()): TodoI
       createdAt: 1731480000000,
       isRepeating: true,
       streakCount: 6,
+      quadrant: 'do_first',
+      scheduledHour: 9,
       subtasks: [
         { id: 'sub-101', title: 'Record 60-second demo capture', completed: true },
         { id: 'sub-102', title: 'Write technical postmortem section', completed: false },
@@ -449,6 +476,8 @@ export function getInitialSeedTodos(todayIso: string = getTodayIsoDate()): TodoI
       isRepeating: true,
       streakCount: 14,
       lastCompletedDate: todayIso,
+      quadrant: 'schedule',
+      scheduledHour: 8,
       subtasks: [],
     },
     {
@@ -463,6 +492,8 @@ export function getInitialSeedTodos(todayIso: string = getTodayIsoDate()): TodoI
       isRepeating: true,
       streakCount: 9,
       lastCompletedDate: todayIso,
+      quadrant: 'do_first',
+      scheduledHour: 7,
       subtasks: [
         { id: 'sub-201', title: '10-min dynamic warm-up', completed: true },
         { id: 'sub-202', title: 'Main strength sets (4x6)', completed: true },
@@ -479,6 +510,8 @@ export function getInitialSeedTodos(todayIso: string = getTodayIsoDate()): TodoI
       createdAt: 1731480200000,
       isRepeating: false,
       streakCount: 0,
+      quadrant: 'delegate',
+      scheduledHour: 11,
       subtasks: [],
     },
     {
@@ -492,6 +525,8 @@ export function getInitialSeedTodos(todayIso: string = getTodayIsoDate()): TodoI
       createdAt: 1731480300000,
       isRepeating: true,
       streakCount: 4,
+      quadrant: 'schedule',
+      scheduledHour: 14,
       subtasks: [],
     },
     {
@@ -505,6 +540,8 @@ export function getInitialSeedTodos(todayIso: string = getTodayIsoDate()): TodoI
       createdAt: 1731480400000,
       isRepeating: false,
       streakCount: 0,
+      quadrant: 'delegate',
+      scheduledHour: 16,
       subtasks: [],
     },
     {
@@ -518,6 +555,8 @@ export function getInitialSeedTodos(todayIso: string = getTodayIsoDate()): TodoI
       createdAt: 1731480500000,
       isRepeating: true,
       streakCount: 3,
+      quadrant: 'eliminate',
+      scheduledHour: 19,
       subtasks: [],
     },
   ];
@@ -1347,10 +1386,33 @@ export type AppLayoutVersion = 'tablet' | 'mobile' | 'split';
 
 export type WorkspaceTab =
   | 'tasks'
+  | 'habits'
+  | 'matrix'
+  | 'network'
+  | 'journal'
+  | 'timer'
   | 'goals'
   | 'topics'
   | 'calendar'
   | 'braindump';
+
+export type TaskRightPanelMode = 'insights' | 'hourly_calendar';
+
+export function resolveRadarAreaNavigation(cat: Category | 'All'): {
+  targetView: WorkspaceTab;
+  categoryFilter: Category | 'All';
+} {
+  if (cat === 'Social') {
+    return {
+      targetView: 'network',
+      categoryFilter: 'Social',
+    };
+  }
+  return {
+    targetView: 'tasks',
+    categoryFilter: cat,
+  };
+}
 
 export interface LayoutSpec {
   version: 'tablet' | 'mobile';
@@ -1375,5 +1437,1010 @@ export function getLayoutSpec(version: 'tablet' | 'mobile'): LayoutSpec {
     label: 'Tablet / Desktop (Left Nav)',
   };
 }
+
+// ============================================================================
+// Eisenhower Matrix (Urgent vs Important 4-Quadrant Prioritization)
+// ============================================================================
+
+export const EISENHOWER_QUADRANTS: readonly EisenhowerQuadrant[] = [
+  'do_first',
+  'schedule',
+  'delegate',
+  'eliminate',
+] as const;
+
+export interface EisenhowerQuadrantMeta {
+  key: EisenhowerQuadrant;
+  code: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  title: string;
+  subtitle: string;
+  actionTag: string;
+  urgencyLabel: 'Urgent' | 'Not Urgent';
+  importanceLabel: 'Important' | 'Not Important';
+  defaultPriority: Priority;
+}
+
+export const EISENHOWER_QUADRANT_META: Record<
+  EisenhowerQuadrant,
+  EisenhowerQuadrantMeta
+> = {
+  do_first: {
+    key: 'do_first',
+    code: 'Q1',
+    title: 'Do First',
+    subtitle: 'Urgent & Important',
+    actionTag: 'Execute Immediately',
+    urgencyLabel: 'Urgent',
+    importanceLabel: 'Important',
+    defaultPriority: 'high',
+  },
+  schedule: {
+    key: 'schedule',
+    code: 'Q2',
+    title: 'Schedule',
+    subtitle: 'Not Urgent & Important',
+    actionTag: 'Plan Deep Work',
+    urgencyLabel: 'Not Urgent',
+    importanceLabel: 'Important',
+    defaultPriority: 'high',
+  },
+  delegate: {
+    key: 'delegate',
+    code: 'Q3',
+    title: 'Delegate',
+    subtitle: 'Urgent & Not Important',
+    actionTag: 'Delegate / Batch',
+    urgencyLabel: 'Urgent',
+    importanceLabel: 'Not Important',
+    defaultPriority: 'medium',
+  },
+  eliminate: {
+    key: 'eliminate',
+    code: 'Q4',
+    title: 'Eliminate / Later',
+    subtitle: 'Not Urgent & Not Important',
+    actionTag: 'Minimize or Drop',
+    urgencyLabel: 'Not Urgent',
+    importanceLabel: 'Not Important',
+    defaultPriority: 'low',
+  },
+};
+
+export function resolveTaskQuadrant(
+  todo: TodoItem,
+  todayIso: string = getTodayIsoDate()
+): EisenhowerQuadrant {
+  if (
+    todo.quadrant &&
+    (EISENHOWER_QUADRANTS as readonly string[]).includes(todo.quadrant)
+  ) {
+    return todo.quadrant;
+  }
+
+  const isUrgent = Boolean(todo.dueDate && todo.dueDate <= todayIso);
+  if (todo.priority === 'high') {
+    return isUrgent ? 'do_first' : 'schedule';
+  }
+  if (todo.priority === 'medium') {
+    return isUrgent ? 'delegate' : 'schedule';
+  }
+  return isUrgent ? 'delegate' : 'eliminate';
+}
+
+export function assignTaskQuadrant(
+  todos: TodoItem[],
+  todoId: string,
+  quadrant: EisenhowerQuadrant
+): TodoItem[] {
+  const defaultPriority = EISENHOWER_QUADRANT_META[quadrant].defaultPriority;
+  return todos.map((todo) => {
+    if (todo.id !== todoId) return todo;
+    return {
+      ...todo,
+      quadrant,
+      priority: defaultPriority,
+    };
+  });
+}
+
+export function groupTodosByEisenhower(
+  todos: TodoItem[],
+  options: {
+    includeCompleted?: boolean;
+    category?: Category | 'All';
+    todayIso?: string;
+  } = {}
+): Record<EisenhowerQuadrant, TodoItem[]> {
+  const includeCompleted = options.includeCompleted ?? true;
+  const category = options.category ?? 'All';
+  const todayIso = options.todayIso ?? getTodayIsoDate();
+
+  const grouped: Record<EisenhowerQuadrant, TodoItem[]> = {
+    do_first: [],
+    schedule: [],
+    delegate: [],
+    eliminate: [],
+  };
+
+  for (const todo of todos) {
+    if (!includeCompleted && todo.completed) continue;
+    if (category !== 'All' && normalizeCategory(todo.category) !== category) {
+      continue;
+    }
+    const q = resolveTaskQuadrant(todo, todayIso);
+    grouped[q].push(todo);
+  }
+
+  for (const key of EISENHOWER_QUADRANTS) {
+    grouped[key].sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      return a.dueDate.localeCompare(b.dueDate);
+    });
+  }
+
+  return grouped;
+}
+
+export function computeEisenhowerSummary(
+  todos: TodoItem[],
+  todayIso: string = getTodayIsoDate()
+): Record<
+  EisenhowerQuadrant,
+  { total: number; active: number; completed: number }
+> {
+  const summary: Record<
+    EisenhowerQuadrant,
+    { total: number; active: number; completed: number }
+  > = {
+    do_first: { total: 0, active: 0, completed: 0 },
+    schedule: { total: 0, active: 0, completed: 0 },
+    delegate: { total: 0, active: 0, completed: 0 },
+    eliminate: { total: 0, active: 0, completed: 0 },
+  };
+
+  for (const todo of todos) {
+    const q = resolveTaskQuadrant(todo, todayIso);
+    summary[q].total += 1;
+    if (todo.completed) {
+      summary[q].completed += 1;
+    } else {
+      summary[q].active += 1;
+    }
+  }
+
+  return summary;
+}
+
+// ============================================================================
+// Hourly Calendar View (Right-Side Task Panel Schedule)
+// ============================================================================
+
+export interface HourlyScheduleSlot {
+  hour: number;
+  label: string;
+  tasks: TodoItem[];
+}
+
+export function formatHourSlotLabel(hour: number): string {
+  const normalized = ((Math.floor(hour) % 24) + 24) % 24;
+  const suffix = normalized >= 12 ? 'PM' : 'AM';
+  const displayHour = normalized % 12 === 0 ? 12 : normalized % 12;
+  return `${String(displayHour).padStart(2, '0')}:00 ${suffix}`;
+}
+
+export function assignTodoScheduledHour(
+  todos: TodoItem[],
+  todoId: string,
+  scheduledHour: number | undefined,
+  dateIso?: string
+): TodoItem[] {
+  return todos.map((t) => {
+    if (t.id !== todoId) return t;
+    return {
+      ...t,
+      scheduledHour,
+      dueDate: dateIso ?? t.dueDate,
+    };
+  });
+}
+
+export function getHourlyScheduleForDate(
+  todos: TodoItem[],
+  dateIso: string,
+  startHour: number = 7,
+  endHour: number = 21
+): HourlyScheduleSlot[] {
+  const slots: HourlyScheduleSlot[] = [];
+  for (let h = startHour; h <= endHour; h++) {
+    const matching = todos.filter(
+      (t) => t.dueDate === dateIso && t.scheduledHour === h
+    );
+    slots.push({
+      hour: h,
+      label: formatHourSlotLabel(h),
+      tasks: matching,
+    });
+  }
+  return slots;
+}
+
+// ============================================================================
+// Relationship & Organization Dashboard (7 Life Areas CRM & Communities)
+// ============================================================================
+
+export type RelationshipCadence =
+  | 'Weekly'
+  | 'Bi-weekly'
+  | 'Monthly'
+  | 'Quarterly';
+
+export interface RelationshipContact {
+  id: string;
+  name: string;
+  role: string;
+  organizationName: string;
+  lifeArea: Category;
+  cadence: RelationshipCadence;
+  lastContactedDate: string; // YYYY-MM-DD
+  streakCount: number;
+  nextAction: string;
+}
+
+export type OrganizationCategory =
+  | 'Company'
+  | 'Community'
+  | 'Open Source'
+  | 'Club'
+  | 'Volunteer';
+
+export interface OrganizationItem {
+  id: string;
+  name: string;
+  type: OrganizationCategory;
+  role: string;
+  lifeArea: Category;
+  cadence: string;
+  memberOrContactCount: number;
+  focusGoal: string;
+}
+
+export function createRelationshipContact(params: {
+  id?: string;
+  name: string;
+  role: string;
+  organizationName?: string;
+  lifeArea: Category;
+  cadence?: RelationshipCadence;
+  lastContactedDate?: string;
+  streakCount?: number;
+  nextAction?: string;
+}): RelationshipContact {
+  const cleanName = params.name.trim();
+  if (!cleanName) {
+    throw new Error('Contact name is required');
+  }
+  return {
+    id:
+      params.id ??
+      `rel-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    name: cleanName,
+    role: params.role.trim() || 'Collaborator',
+    organizationName: (params.organizationName ?? '').trim() || 'Independent',
+    lifeArea: normalizeCategory(params.lifeArea),
+    cadence: params.cadence ?? 'Bi-weekly',
+    lastContactedDate: params.lastContactedDate || getTodayIsoDate(),
+    streakCount: Math.max(0, Math.floor(params.streakCount ?? 1)),
+    nextAction:
+      (params.nextAction ?? '').trim() || 'Send quick check-in message',
+  };
+}
+
+export function logRelationshipCheckIn(
+  contacts: RelationshipContact[],
+  contactId: string,
+  todayIso: string = getTodayIsoDate()
+): RelationshipContact[] {
+  return contacts.map((c) => {
+    if (c.id !== contactId) return c;
+    return {
+      ...c,
+      lastContactedDate: todayIso,
+      streakCount: c.streakCount + 1,
+    };
+  });
+}
+
+export function createOrganizationItem(params: {
+  id?: string;
+  name: string;
+  type?: OrganizationCategory;
+  role: string;
+  lifeArea: Category;
+  cadence?: string;
+  memberOrContactCount?: number;
+  focusGoal?: string;
+}): OrganizationItem {
+  const cleanName = params.name.trim();
+  if (!cleanName) {
+    throw new Error('Organization name is required');
+  }
+  return {
+    id:
+      params.id ??
+      `org-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    name: cleanName,
+    type: params.type ?? 'Community',
+    role: params.role.trim() || 'Active Member',
+    lifeArea: normalizeCategory(params.lifeArea),
+    cadence: (params.cadence ?? '').trim() || 'Weekly Sync',
+    memberOrContactCount: Math.max(
+      1,
+      Math.floor(params.memberOrContactCount ?? 1)
+    ),
+    focusGoal:
+      (params.focusGoal ?? '').trim() ||
+      'Contribute consistently and build deep trust',
+  };
+}
+
+export function getInitialSeedRelationships(
+  todayIso: string = getTodayIsoDate()
+): RelationshipContact[] {
+  return [
+    {
+      id: 'rel-1',
+      name: 'Elena Rostova',
+      role: 'Principal Systems Mentor',
+      organizationName: 'CloudScale Architecture Guild',
+      lifeArea: 'Portfolio',
+      cadence: 'Bi-weekly',
+      lastContactedDate: todayIso,
+      streakCount: 8,
+      nextAction: 'Review distributed consensus benchmark draft together',
+    },
+    {
+      id: 'rel-2',
+      name: 'Marcus Vance',
+      role: 'Design & Typography Peer',
+      organizationName: 'Swiss Grid Design Collective',
+      lifeArea: 'Aesthetics',
+      cadence: 'Weekly',
+      lastContactedDate: todayIso,
+      streakCount: 12,
+      nextAction: 'Share minimalist workspace lighting photos & feedback',
+    },
+    {
+      id: 'rel-3',
+      name: 'Aisha Patel',
+      role: 'Open-Source Mentee',
+      organizationName: 'CodeBridge Community Workshop',
+      lifeArea: 'Karma',
+      cadence: 'Weekly',
+      lastContactedDate: todayIso,
+      streakCount: 6,
+      nextAction: 'Pair-program on her first TypeScript PR test suite',
+    },
+    {
+      id: 'rel-4',
+      name: 'Devon Brooks',
+      role: 'Calisthenics & Rings Partner',
+      organizationName: 'Metro Calisthenics Club',
+      lifeArea: 'Strength',
+      cadence: 'Weekly',
+      lastContactedDate: todayIso,
+      streakCount: 15,
+      nextAction: 'Saturday morning weighted pull-up & handstand session',
+    },
+    {
+      id: 'rel-5',
+      name: 'Sofia Lin',
+      role: 'Close Friend & Book Club Host',
+      organizationName: 'Founders & Thinkers Salon',
+      lifeArea: 'Social',
+      cadence: 'Monthly',
+      lastContactedDate: todayIso,
+      streakCount: 5,
+      nextAction: 'Confirm Thursday coffee catch-up guest list',
+    },
+  ];
+}
+
+export function getInitialSeedOrganizations(): OrganizationItem[] {
+  return [
+    {
+      id: 'org-1',
+      name: 'CloudScale Architecture Guild',
+      type: 'Open Source',
+      role: 'Core Maintainer',
+      lifeArea: 'Portfolio',
+      cadence: 'Tuesdays · Architecture Review',
+      memberOrContactCount: 6,
+      focusGoal: 'Co-author 3 high-throughput backend RFCs this quarter',
+    },
+    {
+      id: 'org-2',
+      name: 'CodeBridge Community Workshop',
+      type: 'Volunteer',
+      role: 'Lead Mentor',
+      lifeArea: 'Karma',
+      cadence: 'Saturdays · Mentorship Cohort',
+      memberOrContactCount: 14,
+      focusGoal: 'Help 10 junior developers land their first open-source merge',
+    },
+    {
+      id: 'org-3',
+      name: 'Founders & Thinkers Salon',
+      type: 'Community',
+      role: 'Discussion Host',
+      lifeArea: 'Social',
+      cadence: 'Bi-weekly · Dinner & Roundtable',
+      memberOrContactCount: 9,
+      focusGoal: 'Curate high-trust conversations across science and art',
+    },
+    {
+      id: 'org-4',
+      name: 'Metro Calisthenics Club',
+      type: 'Club',
+      role: 'Training Squad',
+      lifeArea: 'Strength',
+      cadence: '3x / Week · Morning Rings & Mobility',
+      memberOrContactCount: 4,
+      focusGoal: 'Hit group freestanding handstand and weighted dip milestones',
+    },
+  ];
+}
+
+// ============================================================================
+// DoteTimer Focus Timer (Pomodoro, Deep Work, Sprint & Stopwatch + Session Dots)
+// ============================================================================
+
+export type FocusTimerMode =
+  | 'pomodoro_25'
+  | 'deep_50'
+  | 'sprint_15'
+  | 'stopwatch';
+
+export interface FocusSessionLog {
+  id: string;
+  taskId?: string;
+  taskTitle: string;
+  category: Category;
+  durationMinutes: number;
+  mode: FocusTimerMode;
+  completedAt: string;
+}
+
+export function formatTimerDisplay(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const mins = Math.floor(safe / 60);
+  const secs = safe % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+export function createFocusSessionLog(params: {
+  id?: string;
+  taskId?: string;
+  taskTitle: string;
+  category: Category;
+  durationMinutes: number;
+  mode: FocusTimerMode;
+  completedAt?: string;
+}): FocusSessionLog {
+  return {
+    id:
+      params.id ??
+      `focus-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    taskId: params.taskId,
+    taskTitle: params.taskTitle.trim() || 'Deep Focus Session',
+    category: normalizeCategory(params.category),
+    durationMinutes: Math.max(1, Math.round(params.durationMinutes)),
+    mode: params.mode,
+    completedAt: params.completedAt ?? 'Today',
+  };
+}
+
+export function computeFocusTimerStats(logs: FocusSessionLog[]): {
+  totalMinutes: number;
+  totalSessions: number;
+  byArea: Record<Category, number>;
+} {
+  const byArea: Record<Category, number> = {
+    Portfolio: 0,
+    Karma: 0,
+    Knowledge: 0,
+    Personality: 0,
+    Social: 0,
+    Strength: 0,
+    Aesthetics: 0,
+  };
+  let totalMinutes = 0;
+  for (const log of logs) {
+    const area = normalizeCategory(log.category);
+    const mins = Math.max(0, log.durationMinutes);
+    totalMinutes += mins;
+    byArea[area] += mins;
+  }
+  return {
+    totalMinutes,
+    totalSessions: logs.length,
+    byArea,
+  };
+}
+
+export function getInitialSeedFocusLogs(): FocusSessionLog[] {
+  return [
+    {
+      id: 'flog-1',
+      taskId: 'seed-1',
+      taskTitle: 'Ship Q4 case study and update engineering portfolio repo',
+      category: 'Portfolio',
+      durationMinutes: 50,
+      mode: 'deep_50',
+      completedAt: '09:30 AM',
+    },
+    {
+      id: 'flog-2',
+      taskId: 'seed-2',
+      taskTitle: 'Read 2 chapters of Designing Data-Intensive Applications',
+      category: 'Knowledge',
+      durationMinutes: 25,
+      mode: 'pomodoro_25',
+      completedAt: '10:45 AM',
+    },
+    {
+      id: 'flog-3',
+      taskId: 'seed-3',
+      taskTitle: '45-minute compound strength & mobility session',
+      category: 'Strength',
+      durationMinutes: 45,
+      mode: 'deep_50',
+      completedAt: '07:45 AM',
+    },
+    {
+      id: 'flog-4',
+      taskId: 'seed-5',
+      taskTitle: 'Practice 15 minutes of impromptu vocal storytelling',
+      category: 'Personality',
+      durationMinutes: 15,
+      mode: 'sprint_15',
+      completedAt: '01:15 PM',
+    },
+  ];
+}
+
+// ============================================================================
+// Task View Modes: List View, Kanban View, and Timeline View
+// ============================================================================
+
+export function resolveKanbanStage(todo: TodoItem): KanbanStage {
+  if (todo.completed) return 'done';
+  if (todo.kanbanStage === 'in_progress') return 'in_progress';
+  if (todo.subtasks && todo.subtasks.some((s) => s.completed)) {
+    return 'in_progress';
+  }
+  return 'todo';
+}
+
+export function moveTodoToKanbanStage(
+  todos: TodoItem[],
+  todoId: string,
+  stage: KanbanStage,
+  todayIso: string = getTodayIsoDate()
+): TodoItem[] {
+  return todos.map((todo) => {
+    if (todo.id !== todoId) return todo;
+    const isNowDone = stage === 'done';
+    const wasDone = todo.completed;
+    let nextStreak = todo.streakCount ?? 0;
+    if (todo.isRepeating) {
+      if (isNowDone && !wasDone) nextStreak += 1;
+      if (!isNowDone && wasDone) nextStreak = Math.max(0, nextStreak - 1);
+    }
+    return {
+      ...todo,
+      completed: isNowDone,
+      kanbanStage: stage,
+      streakCount: nextStreak,
+      lastCompletedDate: isNowDone ? todayIso : todo.lastCompletedDate,
+    };
+  });
+}
+
+export function groupTodosByKanban(
+  todos: TodoItem[]
+): Record<KanbanStage, TodoItem[]> {
+  const columns: Record<KanbanStage, TodoItem[]> = {
+    todo: [],
+    in_progress: [],
+    done: [],
+  };
+  for (const t of todos) {
+    const stage = resolveKanbanStage(t);
+    columns[stage].push(t);
+  }
+  return columns;
+}
+
+export interface TimelineDateGroup {
+  dateIso: string;
+  bucketLabel: string; // e.g., 'Today', 'Overdue', or formatted date
+  items: TodoItem[];
+}
+
+export function groupTodosForTimeline(
+  todos: TodoItem[],
+  todayIso: string = getTodayIsoDate()
+): TimelineDateGroup[] {
+  const byDate = new Map<string, TodoItem[]>();
+  for (const todo of todos) {
+    const key = todo.dueDate || todayIso;
+    const existing = byDate.get(key) ?? [];
+    existing.push(todo);
+    byDate.set(key, existing);
+  }
+
+  const sortedDates = Array.from(byDate.keys()).sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  return sortedDates.map((dateIso) => {
+    const items = [...(byDate.get(dateIso) ?? [])].sort((a, b) => {
+      const hourA = a.scheduledHour ?? 24;
+      const hourB = b.scheduledHour ?? 24;
+      if (hourA !== hourB) return hourA - hourB;
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      return a.createdAt - b.createdAt;
+    });
+
+    let bucketLabel = dateIso;
+    if (dateIso === todayIso) {
+      bucketLabel = `Today · ${dateIso}`;
+    } else if (dateIso < todayIso) {
+      bucketLabel = `Overdue · ${dateIso}`;
+    } else {
+      bucketLabel = `Upcoming · ${dateIso}`;
+    }
+
+    return {
+      dateIso,
+      bucketLabel,
+      items,
+    };
+  });
+}
+
+// ============================================================================
+// Journal Dashboard (7 Life Areas Reflections, Wins & Gratitude)
+// ============================================================================
+
+export type JournalMood = 'Peak' | 'Focused' | 'Calm' | 'Reflective';
+
+export interface JournalEntry {
+  id: string;
+  title: string;
+  content: string;
+  gratitude: string;
+  lifeArea: Category;
+  mood: JournalMood;
+  dateIso: string;
+  createdAt: number;
+}
+
+export function createJournalEntry(params: {
+  id?: string;
+  title: string;
+  content: string;
+  gratitude?: string;
+  lifeArea: Category;
+  mood?: JournalMood;
+  dateIso?: string;
+  createdAt?: number;
+}): JournalEntry {
+  const cleanTitle = params.title.trim();
+  const cleanContent = params.content.trim();
+  if (!cleanTitle && !cleanContent) {
+    throw new Error('Journal title or reflection content is required');
+  }
+  return {
+    id:
+      params.id ??
+      `journal-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    title: cleanTitle || 'Daily Reflection',
+    content: cleanContent,
+    gratitude: (params.gratitude ?? '').trim(),
+    lifeArea: normalizeCategory(params.lifeArea),
+    mood: params.mood ?? 'Focused',
+    dateIso: params.dateIso || getTodayIsoDate(),
+    createdAt: params.createdAt ?? Date.now(),
+  };
+}
+
+export function deleteJournalEntry(
+  entries: JournalEntry[],
+  id: string
+): JournalEntry[] {
+  return entries.filter((e) => e.id !== id);
+}
+
+export function getInitialSeedJournalEntries(
+  todayIso: string = getTodayIsoDate()
+): JournalEntry[] {
+  return [
+    {
+      id: 'journal-1',
+      title: 'Breakthrough on Distributed Consensus Architecture',
+      content:
+        'Mapped out the Raft leader election state transitions and benchmarked tail latency under simulated packet loss. Writing the postmortem clarified our replication guarantees.',
+      gratitude: 'Grateful for Elena’s thoughtful review on the RFC.',
+      lifeArea: 'Portfolio',
+      mood: 'Peak',
+      dateIso: todayIso,
+      createdAt: 1731482000000,
+    },
+    {
+      id: 'journal-2',
+      title: 'Weighted Rings & Morning Mobility Flow',
+      content:
+        'Held a clean 20-second freestanding handstand and completed 4 sets of weighted pull-ups with zero shoulder impingement.',
+      gratitude: 'Consistent morning training energy with Devon.',
+      lifeArea: 'Strength',
+      mood: 'Focused',
+      dateIso: todayIso,
+      createdAt: 1731481000000,
+    },
+    {
+      id: 'journal-3',
+      title: 'Founders & Thinkers Salon Conversation',
+      content:
+        'Hosted an energizing evening roundtable on cognitive mental models and minimalist industrial design.',
+      gratitude: 'High-trust community friendships that sharpen perspective.',
+      lifeArea: 'Social',
+      mood: 'Calm',
+      dateIso: todayIso,
+      createdAt: 1731480000000,
+    },
+  ];
+}
+
+// ============================================================================
+// Habit Dashboard & Completion Heatmap (28-Day Visual Consistency Grid)
+// 3 Options: 1. Building a Helpful Habit, 2. Breaking an Unhelpful Habit, 3. Replacing an Old Habit
+// ============================================================================
+
+export type HabitCategoryType =
+  | 'build_helpful'
+  | 'break_unhelpful'
+  | 'replace_old';
+
+export const HABIT_CATEGORY_OPTIONS: Array<{
+  key: HabitCategoryType;
+  optionNumber: number;
+  label: string;
+  shortLabel: string;
+  description: string;
+}> = [
+  {
+    key: 'build_helpful',
+    optionNumber: 1,
+    label: '1. Building a Helpful Habit',
+    shortLabel: 'Build Helpful',
+    description: 'Establish a positive compound routine with daily cues.',
+  },
+  {
+    key: 'break_unhelpful',
+    optionNumber: 2,
+    label: '2. Breaking an Unhelpful Habit',
+    shortLabel: 'Break Unhelpful',
+    description: 'Eliminate a negative habit by adding friction & tracking clean days.',
+  },
+  {
+    key: 'replace_old',
+    optionNumber: 3,
+    label: '3. Replacing an Old Habit',
+    shortLabel: 'Replace Old',
+    description: 'Swap an existing trigger behavior with a better replacement routine.',
+  },
+];
+
+export interface HabitItem {
+  id: string;
+  title: string;
+  lifeArea: Category;
+  habitType?: HabitCategoryType;
+  oldHabitToReplace?: string;
+  targetPerWeek: number;
+  completedDates: string[]; // Array of YYYY-MM-DD strings
+}
+
+export interface HeatmapDayCell {
+  dateIso: string;
+  shortLabel: string;
+  completedCount: number;
+  totalHabits: number;
+  intensityLevel: 0 | 1 | 2 | 3 | 4;
+}
+
+export function getRecentIsoDates(
+  daysCount: number = 28,
+  endDateIso: string = getTodayIsoDate()
+): string[] {
+  const parts = endDateIso.split('-').map(Number);
+  const baseDate = new Date(
+    parts[0] || 2026,
+    (parts[1] || 11) - 1,
+    parts[2] || 13
+  );
+  const dates: string[] = [];
+  for (let i = daysCount - 1; i >= 0; i--) {
+    const d = new Date(baseDate);
+    d.setDate(baseDate.getDate() - i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    dates.push(`${y}-${m}-${day}`);
+  }
+  return dates;
+}
+
+export function createHabitItem(params: {
+  id?: string;
+  title: string;
+  lifeArea: Category;
+  habitType?: HabitCategoryType;
+  oldHabitToReplace?: string;
+  targetPerWeek?: number;
+  completedDates?: string[];
+}): HabitItem {
+  const clean = params.title.trim();
+  if (!clean) {
+    throw new Error('Habit title is required');
+  }
+  const habitType = params.habitType ?? 'build_helpful';
+  const oldHabitToReplace = (params.oldHabitToReplace ?? '').trim() || undefined;
+  return {
+    id:
+      params.id ??
+      `habit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    title: clean,
+    lifeArea: normalizeCategory(params.lifeArea),
+    habitType,
+    oldHabitToReplace,
+    targetPerWeek: Math.max(1, Math.min(7, params.targetPerWeek ?? 7)),
+    completedDates: Array.from(new Set(params.completedDates ?? [])).sort(),
+  };
+}
+
+export function toggleHabitDateCompletion(
+  habits: HabitItem[],
+  habitId: string,
+  dateIso: string = getTodayIsoDate()
+): HabitItem[] {
+  return habits.map((h) => {
+    if (h.id !== habitId) return h;
+    const exists = h.completedDates.includes(dateIso);
+    const nextDates = exists
+      ? h.completedDates.filter((d) => d !== dateIso)
+      : [...h.completedDates, dateIso].sort();
+    return {
+      ...h,
+      completedDates: nextDates,
+    };
+  });
+}
+
+export function computeHabitCurrentStreak(
+  habit: HabitItem,
+  todayIso: string = getTodayIsoDate()
+): number {
+  const recent = getRecentIsoDates(60, todayIso).reverse();
+  const dateSet = new Set(habit.completedDates);
+  let streak = 0;
+  for (let i = 0; i < recent.length; i++) {
+    const d = recent[i];
+    if (dateSet.has(d)) {
+      streak += 1;
+    } else if (i === 0) {
+      // Allow today to be unchecked without zeroing yesterday's streak
+      continue;
+    } else {
+      break;
+    }
+  }
+  return streak;
+}
+
+export function computeHabitHeatmapGrid(
+  habits: HabitItem[],
+  daysCount: number = 28,
+  todayIso: string = getTodayIsoDate()
+): HeatmapDayCell[] {
+  const dates = getRecentIsoDates(daysCount, todayIso);
+  const totalHabits = Math.max(1, habits.length);
+
+  return dates.map((dateIso) => {
+    const completedCount = habits.filter((h) =>
+      h.completedDates.includes(dateIso)
+    ).length;
+    const ratio = completedCount / totalHabits;
+    let intensityLevel: 0 | 1 | 2 | 3 | 4 = 0;
+    if (completedCount > 0) {
+      if (ratio >= 0.85) intensityLevel = 4;
+      else if (ratio >= 0.6) intensityLevel = 3;
+      else if (ratio >= 0.35) intensityLevel = 2;
+      else intensityLevel = 1;
+    }
+
+    return {
+      dateIso,
+      shortLabel: dateIso.slice(5), // MM-DD
+      completedCount,
+      totalHabits: habits.length,
+      intensityLevel,
+    };
+  });
+}
+
+export function getInitialSeedHabits(
+  todayIso: string = getTodayIsoDate()
+): HabitItem[] {
+  const last28 = getRecentIsoDates(28, todayIso);
+  return [
+    {
+      id: 'habit-1',
+      title: '90m Deep Architecture & Code Block',
+      lifeArea: 'Portfolio',
+      habitType: 'build_helpful',
+      targetPerWeek: 6,
+      completedDates: last28.filter((_, idx) => idx % 5 !== 0),
+    },
+    {
+      id: 'habit-2',
+      title: '45m Calisthenics & Thoracic Mobility',
+      lifeArea: 'Strength',
+      habitType: 'build_helpful',
+      targetPerWeek: 5,
+      completedDates: last28.filter((_, idx) => idx % 3 !== 0),
+    },
+    {
+      id: 'habit-3',
+      title: 'Zero Late-Night Doomscrolling After 10:00 PM',
+      lifeArea: 'Knowledge',
+      habitType: 'break_unhelpful',
+      targetPerWeek: 7,
+      completedDates: last28.filter((_, idx) => idx % 4 !== 1),
+    },
+    {
+      id: 'habit-4',
+      title: 'Zero Refined Sugar or Afternoon Energy Drinks',
+      lifeArea: 'Strength',
+      habitType: 'break_unhelpful',
+      targetPerWeek: 7,
+      completedDates: last28.filter((_, idx) => idx % 2 === 0 || idx > 22),
+    },
+    {
+      id: 'habit-5',
+      title: 'Read 15 Pages of System Design & Philosophy',
+      oldHabitToReplace: 'Checking social feeds first thing in the morning',
+      lifeArea: 'Knowledge',
+      habitType: 'replace_old',
+      targetPerWeek: 6,
+      completedDates: last28.filter((_, idx) => idx % 3 === 1 || idx >= 24),
+    },
+    {
+      id: 'habit-6',
+      title: '10m Impromptu Vocal Storytelling Walk',
+      oldHabitToReplace: 'Sitting at desk during afternoon slump',
+      lifeArea: 'Personality',
+      habitType: 'replace_old',
+      targetPerWeek: 5,
+      completedDates: last28.filter((_, idx) => idx % 2 === 1 || idx >= 23),
+    },
+  ];
+}
+
+
+
+
+
 
 

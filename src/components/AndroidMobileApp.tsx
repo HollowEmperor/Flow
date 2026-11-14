@@ -10,6 +10,14 @@ import {
   BatteryCharging,
   Signal,
   CheckCircle2,
+  LayoutGrid,
+  Users,
+  Timer,
+  BookText,
+  Flame,
+  Clock,
+  Kanban,
+  GitCommitHorizontal,
 } from 'lucide-react';
 import {
   Category,
@@ -22,6 +30,20 @@ import {
   GoalHorizonKey,
   TopicGoalRoadmap,
   WorkspaceTab,
+  TaskViewMode,
+  KanbanStage,
+  EisenhowerQuadrant,
+  RelationshipCadence,
+  RelationshipContact,
+  OrganizationCategory,
+  OrganizationItem,
+  FocusTimerMode,
+  FocusSessionLog,
+  JournalMood,
+  JournalEntry,
+  HabitCategoryType,
+  HabitItem,
+  resolveRadarAreaNavigation,
 } from '../utils/todoLogic';
 import { QuickAddTask } from './QuickAddTask';
 import { TaskRow } from './TaskRow';
@@ -31,10 +53,19 @@ import { LifeRadarChart } from './LifeRadarChart';
 import { TopicDashboard } from './TopicDashboard';
 import { GoalPlanner } from './GoalPlanner';
 import { CalendarWorkspace } from './CalendarWorkspace';
+import { EisenhowerMatrix } from './EisenhowerMatrix';
+import { RelationshipOrgDashboard } from './RelationshipOrgDashboard';
+import { FocusDoteTimer } from './FocusDoteTimer';
+import { HourlyCalendarPanel } from './HourlyCalendarPanel';
+import { TaskViewsContainer } from './TaskViewsContainer';
+import { JournalDashboard } from './JournalDashboard';
+import { HabitDashboard } from './HabitDashboard';
 
 interface AndroidMobileAppProps {
   activeView: WorkspaceTab;
   onSelectView: (view: WorkspaceTab) => void;
+  taskViewMode: TaskViewMode;
+  onSelectTaskViewMode: (mode: TaskViewMode) => void;
   todos: TodoItem[];
   visibleTodos: TodoItem[];
   stats: {
@@ -57,6 +88,8 @@ interface AndroidMobileAppProps {
     category: Category;
     dueDate: string;
     isRepeating: boolean;
+    scheduledHour?: number;
+    quadrant?: EisenhowerQuadrant;
   }) => void;
   onToggleTodo: (id: string) => void;
   onDeleteTodo: (id: string) => void;
@@ -72,12 +105,21 @@ interface AndroidMobileAppProps {
         | 'dueDate'
         | 'isRepeating'
         | 'streakCount'
+        | 'quadrant'
+        | 'scheduledHour'
       >
     >
   ) => void;
   onAddSubtask: (todoId: string, title: string) => void;
   onToggleSubtask: (todoId: string, subtaskId: string) => void;
   onDeleteSubtask: (todoId: string, subtaskId: string) => void;
+  onMoveKanbanStage: (todoId: string, stage: KanbanStage) => void;
+  onAssignQuadrant: (todoId: string, quadrant: EisenhowerQuadrant) => void;
+  onAssignScheduledHour: (
+    todoId: string,
+    hour: number | undefined,
+    dateIso: string
+  ) => void;
   // Topics & Goals
   topics: TopicItem[];
   goalRoadmaps: TopicGoalRoadmap[];
@@ -121,6 +163,57 @@ interface AndroidMobileAppProps {
   onSwipeLeft: (itemId: string) => void;
   onRestoreToDeck: (itemId: string) => void;
   onDeleteDumpItem: (itemId: string) => void;
+  // Relationships & Organizations
+  contacts: RelationshipContact[];
+  organizations: OrganizationItem[];
+  onLogRelationshipCheckIn: (contactId: string) => void;
+  onAddContact: (params: {
+    name: string;
+    role: string;
+    organizationName: string;
+    lifeArea: Category;
+    cadence: RelationshipCadence;
+    nextAction: string;
+  }) => void;
+  onAddOrganization: (params: {
+    name: string;
+    type: OrganizationCategory;
+    role: string;
+    lifeArea: Category;
+    cadence: string;
+    memberOrContactCount: number;
+    focusGoal: string;
+  }) => void;
+  // DoteTimer
+  focusLogs: FocusSessionLog[];
+  onLogFocusSession: (params: {
+    taskId?: string;
+    taskTitle: string;
+    category: Category;
+    durationMinutes: number;
+    mode: FocusTimerMode;
+  }) => void;
+  // Journal
+  journalEntries: JournalEntry[];
+  onAddJournalEntry: (params: {
+    title: string;
+    content: string;
+    gratitude: string;
+    lifeArea: Category;
+    mood: JournalMood;
+    dateIso: string;
+  }) => void;
+  onDeleteJournalEntry: (id: string) => void;
+  // Habits & Heatmap
+  habits: HabitItem[];
+  onToggleHabitDate: (habitId: string, dateIso: string) => void;
+  onAddHabit: (params: {
+    title: string;
+    lifeArea: Category;
+    habitType: HabitCategoryType;
+    oldHabitToReplace?: string;
+    targetPerWeek: number;
+  }) => void;
 }
 
 const CATEGORIES_WITH_ALL: Array<Category | 'All'> = ['All', ...LIFE_AREAS];
@@ -128,6 +221,8 @@ const CATEGORIES_WITH_ALL: Array<Category | 'All'> = ['All', ...LIFE_AREAS];
 export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
   activeView,
   onSelectView,
+  taskViewMode,
+  onSelectTaskViewMode,
   todos,
   visibleTodos,
   stats,
@@ -144,6 +239,9 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
   onAddSubtask,
   onToggleSubtask,
   onDeleteSubtask,
+  onMoveKanbanStage,
+  onAssignQuadrant,
+  onAssignScheduledHour,
   topics,
   goalRoadmaps,
   selectedTopicId,
@@ -157,18 +255,30 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
   onToggleHorizonCompleted,
   onPushHorizonToTodo,
   brainDumpItems,
-  brainDumpQueueCount,
   onAddDumpItems,
   onSwipeRight,
   onSwipeLeft,
   onRestoreToDeck,
   onDeleteDumpItem,
+  contacts,
+  organizations,
+  onLogRelationshipCheckIn,
+  onAddContact,
+  onAddOrganization,
+  focusLogs,
+  onLogFocusSession,
+  journalEntries,
+  onAddJournalEntry,
+  onDeleteJournalEntry,
+  habits,
+  onToggleHabitDate,
+  onAddHabit,
 }) => {
-  const [mobileTaskSubTab, setMobileTaskSubTab] = useState<'list' | 'insights'>(
-    'list'
-  );
+  const [mobileTaskSubTab, setMobileTaskSubTab] = useState<
+    'list' | 'insights' | 'hourly'
+  >('list');
 
-  const navItems: Array<{
+  const bottomNavItems: Array<{
     id: WorkspaceTab;
     label: string;
     badge?: number;
@@ -181,26 +291,56 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
       icon: <ListTodo className="w-4 h-4" aria-hidden="true" />,
     },
     {
+      id: 'habits',
+      label: 'Habits',
+      icon: <Flame className="w-4 h-4" aria-hidden="true" />,
+    },
+    {
+      id: 'matrix',
+      label: 'Matrix',
+      icon: <LayoutGrid className="w-4 h-4" aria-hidden="true" />,
+    },
+    {
+      id: 'network',
+      label: 'Network',
+      icon: <Users className="w-4 h-4" aria-hidden="true" />,
+    },
+    {
+      id: 'journal',
+      label: 'Journal',
+      icon: <BookText className="w-4 h-4" aria-hidden="true" />,
+    },
+  ];
+
+  const secondaryQuickPills: Array<{
+    id: WorkspaceTab;
+    label: string;
+    icon: React.ReactNode;
+  }> = [
+    {
+      id: 'timer',
+      label: 'DoteTimer',
+      icon: <Timer className="w-3 h-3" aria-hidden="true" />,
+    },
+    {
       id: 'goals',
-      label: 'Goals',
-      icon: <Target className="w-4 h-4" aria-hidden="true" />,
+      label: 'Goals (5Y→1W)',
+      icon: <Target className="w-3 h-3" aria-hidden="true" />,
     },
     {
       id: 'topics',
       label: 'Topics',
-      badge: topics.length,
-      icon: <BookOpen className="w-4 h-4" aria-hidden="true" />,
+      icon: <BookOpen className="w-3 h-3" aria-hidden="true" />,
     },
     {
       id: 'calendar',
       label: 'Calendar',
-      icon: <CalendarIcon className="w-4 h-4" aria-hidden="true" />,
+      icon: <CalendarIcon className="w-3 h-3" aria-hidden="true" />,
     },
     {
       id: 'braindump',
-      label: 'Dump',
-      badge: brainDumpQueueCount,
-      icon: <Layers className="w-4 h-4" aria-hidden="true" />,
+      label: 'Brain Dump',
+      icon: <Layers className="w-3 h-3" aria-hidden="true" />,
     },
   ];
 
@@ -215,69 +355,110 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
           <span className="font-semibold">09:41</span>
           <span className="text-emerald-400 text-[10px]">Android 9:16</span>
         </div>
-        <div className="w-16 h-3.5 bg-black rounded-full mx-auto" aria-hidden="true" />
+        <div
+          className="w-16 h-3.5 bg-black rounded-full mx-auto"
+          aria-hidden="true"
+        />
         <div className="flex items-center gap-1.5 text-slate-300">
           <Signal className="w-3 h-3" aria-hidden="true" />
           <Wifi className="w-3 h-3" aria-hidden="true" />
-          <BatteryCharging className="w-3.5 h-3.5 text-emerald-400" aria-hidden="true" />
+          <BatteryCharging
+            className="w-3.5 h-3.5 text-emerald-400"
+            aria-hidden="true"
+          />
         </div>
       </div>
 
       {/* Mobile Top App Bar */}
-      <div className="bg-white border-b border-slate-200 px-4 py-2.5 flex items-center justify-between gap-2 shrink-0">
-        <div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-bold tracking-tight text-slate-900 font-display">
-              FocusFlow
-            </span>
-            <span className="text-[11px] font-mono text-emerald-700 font-semibold">
-              · {stats.completionRate}%
-            </span>
+      <div className="bg-white border-b border-slate-200 px-3.5 py-2 space-y-1.5 shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold tracking-tight text-slate-900 font-display">
+                FocusFlow
+              </span>
+              <span className="text-[11px] font-mono text-emerald-700 font-semibold">
+                · {stats.completionRate}%
+              </span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-500">
-            {activeView === 'tasks' && 'Daily Habits, Streaks & Focus Wheel'}
-            {activeView === 'goals' && '5-Year to 1-Week Goal Funnel'}
-            {activeView === 'topics' && 'Topics, Progress & Learning Links'}
-            {activeView === 'calendar' && 'Monthly Schedule & Google Calendar'}
-            {activeView === 'braindump' && 'Swipe Right Keep · Left Store'}
-          </p>
+
+          {activeView === 'tasks' && (
+            <div
+              role="group"
+              aria-label="Mobile task sub-view"
+              className="bg-slate-100 p-0.5 rounded-lg flex items-center text-[10px] font-semibold shrink-0"
+            >
+              <button
+                type="button"
+                onClick={() => setMobileTaskSubTab('list')}
+                className={`px-2 py-1 rounded-md transition-colors cursor-pointer ${
+                  mobileTaskSubTab === 'list'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Tasks ({stats.active})
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTaskSubTab('insights')}
+                className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer ${
+                  mobileTaskSubTab === 'insights'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles
+                  className="w-2.5 h-2.5 text-emerald-600"
+                  aria-hidden="true"
+                />
+                <span>Wheel & Radar</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileTaskSubTab('hourly')}
+                className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer ${
+                  mobileTaskSubTab === 'hourly'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Clock
+                  className="w-2.5 h-2.5 text-emerald-600"
+                  aria-hidden="true"
+                />
+                <span>Hourly</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        {activeView === 'tasks' && (
-          <div
-            role="group"
-            aria-label="Mobile task sub-view"
-            className="bg-slate-100 p-0.5 rounded-lg flex items-center text-[11px] font-semibold shrink-0"
-          >
-            <button
-              type="button"
-              onClick={() => setMobileTaskSubTab('list')}
-              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
-                mobileTaskSubTab === 'list'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              List ({stats.active})
-            </button>
-            <button
-              type="button"
-              onClick={() => setMobileTaskSubTab('insights')}
-              className={`px-2.5 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer ${
-                mobileTaskSubTab === 'insights'
-                  ? 'bg-white text-slate-900 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Sparkles className="w-3 h-3 text-emerald-600" aria-hidden="true" />
-              <span>Wheel & Radar</span>
-            </button>
-          </div>
-        )}
+        {/* Secondary Feature Strip for Mobile */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+          {secondaryQuickPills.map((pill) => {
+            const isCurrent = activeView === pill.id;
+            return (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => onSelectView(pill.id)}
+                className={`px-2 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
+                  isCurrent
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                {pill.icon}
+                <span>{pill.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Scrollable 9:16 Mobile Content Viewport */}
-      <div className="flex-1 overflow-y-auto px-3.5 py-3.5 space-y-3.5">
+      <div className="flex-1 overflow-y-auto px-3.5 py-3.5 space-y-3.5 @container">
         {activeView === 'tasks' && mobileTaskSubTab === 'insights' ? (
           <div className="space-y-4">
             <TaskWheelPicker
@@ -292,12 +473,24 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
               activeCategory={categoryFilter}
               baseOverrides={radarBaseOverrides}
               onSelectCategory={(cat) => {
-                onSelectCategoryFilter(cat);
-                setMobileTaskSubTab('list');
+                const nav = resolveRadarAreaNavigation(cat);
+                onSelectCategoryFilter(nav.categoryFilter);
+                onSelectView(nav.targetView);
+                if (nav.targetView === 'tasks') {
+                  setMobileTaskSubTab('list');
+                }
               }}
               onAdjustBaseScore={onAdjustBaseScore}
             />
           </div>
+        ) : activeView === 'tasks' && mobileTaskSubTab === 'hourly' ? (
+          <HourlyCalendarPanel
+            todos={todos}
+            onToggleTodo={onToggleTodo}
+            onAssignScheduledHour={onAssignScheduledHour}
+            onAddTodoAtHour={onAddTodo}
+            onCloseHourlyView={() => setMobileTaskSubTab('insights')}
+          />
         ) : activeView === 'tasks' ? (
           <div className="space-y-3">
             {/* Horizontal 7 Life Area Filter Scroll */}
@@ -325,6 +518,50 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
               })}
             </div>
 
+            {/* List / Kanban / Timeline Switcher for Mobile */}
+            <div
+              role="group"
+              aria-label="Mobile task display mode"
+              className="grid grid-cols-3 gap-1 bg-slate-200/70 p-1 rounded-xl"
+            >
+              <button
+                type="button"
+                onClick={() => onSelectTaskViewMode('list')}
+                className={`py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer ${
+                  taskViewMode === 'list'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600'
+                }`}
+              >
+                <ListTodo className="w-3 h-3" />
+                <span>List</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectTaskViewMode('kanban')}
+                className={`py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer ${
+                  taskViewMode === 'kanban'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600'
+                }`}
+              >
+                <Kanban className="w-3 h-3" />
+                <span>Kanban</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectTaskViewMode('timeline')}
+                className={`py-1 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1 cursor-pointer ${
+                  taskViewMode === 'timeline'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600'
+                }`}
+              >
+                <GitCommitHorizontal className="w-3 h-3" />
+                <span>Timeline</span>
+              </button>
+            </div>
+
             {/* Quick Add Task */}
             <QuickAddTask
               defaultCategory={
@@ -333,64 +570,94 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
               onAdd={onAddTodo}
             />
 
-            {/* Compact Progress Strip */}
-            <div className="bg-white border border-slate-200 rounded-xl p-3 flex items-center justify-between gap-3">
-              <div className="flex-1">
-                <div className="flex items-center justify-between text-[11px] font-medium text-slate-700 mb-1">
-                  <span>Daily Momentum</span>
-                  <span className="font-mono font-bold text-emerald-700">
-                    {stats.completed}/{stats.total} done ({stats.completionRate}%)
-                  </span>
-                </div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-emerald-600 transition-transform duration-200 origin-left"
-                    style={{
-                      transform: `scaleX(${stats.completionRate / 100})`,
-                    }}
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setMobileTaskSubTab('insights')}
-                className="px-2.5 py-1.5 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg shrink-0 cursor-pointer"
-              >
-                Spin Wheel
-              </button>
-            </div>
-
-            {/* Mobile Tasks List */}
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-              {visibleTodos.length > 0 ? (
-                <div role="list" aria-label="Android mobile task list">
-                  {visibleTodos.map((todo) => (
-                    <TaskRow
-                      key={todo.id}
-                      todo={todo}
-                      isFocused={selectedFocusTaskId === todo.id}
-                      onToggle={onToggleTodo}
-                      onDelete={onDeleteTodo}
-                      onUpdate={onUpdateTodo}
-                      onAddSubtask={onAddSubtask}
-                      onToggleSubtask={onToggleSubtask}
-                      onDeleteSubtask={onDeleteSubtask}
+            {taskViewMode === 'list' ? (
+              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                {visibleTodos.length > 0 ? (
+                  <div role="list" aria-label="Android mobile task list">
+                    {visibleTodos.map((todo) => (
+                      <TaskRow
+                        key={todo.id}
+                        todo={todo}
+                        isFocused={selectedFocusTaskId === todo.id}
+                        onToggle={onToggleTodo}
+                        onDelete={onDeleteTodo}
+                        onUpdate={onUpdateTodo}
+                        onAddSubtask={onAddSubtask}
+                        onToggleSubtask={onToggleSubtask}
+                        onDeleteSubtask={onDeleteSubtask}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-10 px-4 text-center">
+                    <CheckCircle2
+                      className="w-6 h-6 text-slate-400 mx-auto mb-2"
+                      aria-hidden="true"
                     />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-10 px-4 text-center">
-                  <CheckCircle2
-                    className="w-6 h-6 text-slate-400 mx-auto mb-2"
-                    aria-hidden="true"
-                  />
-                  <p className="text-xs font-semibold text-slate-800">
-                    No tasks in this filter
-                  </p>
-                </div>
-              )}
-            </div>
+                    <p className="text-xs font-semibold text-slate-800">
+                      No tasks in this filter
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <TaskViewsContainer
+                mode={taskViewMode}
+                todos={visibleTodos}
+                onToggleTodo={onToggleTodo}
+                onDeleteTodo={onDeleteTodo}
+                onMoveKanbanStage={onMoveKanbanStage}
+              />
+            )}
           </div>
+        ) : activeView === 'habits' ? (
+          <HabitDashboard
+            habits={habits}
+            onToggleHabitDate={onToggleHabitDate}
+            onAddHabit={onAddHabit}
+          />
+        ) : activeView === 'matrix' ? (
+          <EisenhowerMatrix
+            todos={todos}
+            onToggleTodo={onToggleTodo}
+            onDeleteTodo={onDeleteTodo}
+            onAssignQuadrant={onAssignQuadrant}
+            onAddTodoInQuadrant={(params) =>
+              onAddTodo({ ...params, isRepeating: false })
+            }
+          />
+        ) : activeView === 'network' ? (
+          <RelationshipOrgDashboard
+            contacts={contacts}
+            organizations={organizations}
+            onLogCheckIn={onLogRelationshipCheckIn}
+            onAddContact={onAddContact}
+            onAddOrganization={onAddOrganization}
+            onPushNextActionToTodo={(title, notes, lifeArea) => {
+              onAddTodo({
+                title,
+                notes,
+                priority: 'high',
+                category: lifeArea,
+                dueDate: new Date().toISOString().slice(0, 10),
+                isRepeating: false,
+              });
+              onSelectView('tasks');
+            }}
+          />
+        ) : activeView === 'journal' ? (
+          <JournalDashboard
+            entries={journalEntries}
+            onAddEntry={onAddJournalEntry}
+            onDeleteEntry={onDeleteJournalEntry}
+          />
+        ) : activeView === 'timer' ? (
+          <FocusDoteTimer
+            todos={todos}
+            focusLogs={focusLogs}
+            onLogSession={onLogFocusSession}
+            onCompleteLinkedTask={onToggleTodo}
+          />
         ) : activeView === 'goals' ? (
           <GoalPlanner
             topics={topics}
@@ -451,7 +718,7 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
         data-testid="android-bottom-nav"
         className="bg-white border-t border-slate-200 px-2 pt-1.5 pb-1 grid grid-cols-5 gap-1 shrink-0"
       >
-        {navItems.map((item) => {
+        {bottomNavItems.map((item) => {
           const isActive = activeView === item.id;
           return (
             <button

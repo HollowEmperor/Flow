@@ -133,10 +133,11 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
           <polygon
             data-testid="radar-data-polygon"
             points={pointsString}
-            fill="rgba(16, 185, 129, 0.20)"
+            fill="#aa3030"
             stroke="#059669"
             strokeWidth="2.25"
             strokeLinejoin="round"
+            className="bg-[#aa3030]"
           />
 
           {/* Data Vertex Dots & Outer Axis Labels */}

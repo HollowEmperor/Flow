@@ -14,10 +14,23 @@ import {
   Smartphone,
   Columns2,
   Plus,
+  LayoutGrid,
+  Users,
+  Timer,
+  BookText,
+  Flame,
+  Clock,
+  Sparkles,
+  Kanban,
+  GitCommitHorizontal,
 } from 'lucide-react';
 import {
   AppLayoutVersion,
   WorkspaceTab,
+  TaskRightPanelMode,
+  TaskViewMode,
+  KanbanStage,
+  EisenhowerQuadrant,
   Category,
   LIFE_AREAS,
   Priority,
@@ -29,6 +42,16 @@ import {
   TopicResourceType,
   GoalHorizonKey,
   TopicGoalRoadmap,
+  RelationshipCadence,
+  RelationshipContact,
+  OrganizationCategory,
+  OrganizationItem,
+  FocusTimerMode,
+  FocusSessionLog,
+  JournalMood,
+  JournalEntry,
+  HabitCategoryType,
+  HabitItem,
   createTodoItem,
   toggleTodoCompletion,
   updateTodoItem,
@@ -58,6 +81,23 @@ import {
   createTopicGoalRoadmap,
   updateGoalHorizonAnswer,
   toggleGoalHorizonStepWithTopicSync,
+  assignTaskQuadrant,
+  assignTodoScheduledHour,
+  moveTodoToKanbanStage,
+  createRelationshipContact,
+  logRelationshipCheckIn,
+  createOrganizationItem,
+  getInitialSeedRelationships,
+  getInitialSeedOrganizations,
+  createFocusSessionLog,
+  getInitialSeedFocusLogs,
+  createJournalEntry,
+  deleteJournalEntry,
+  getInitialSeedJournalEntries,
+  createHabitItem,
+  toggleHabitDateCompletion,
+  getInitialSeedHabits,
+  resolveRadarAreaNavigation,
 } from './utils/todoLogic';
 import { QuickAddTask } from './components/QuickAddTask';
 import { TaskRow } from './components/TaskRow';
@@ -69,12 +109,24 @@ import { TopicDashboard } from './components/TopicDashboard';
 import { GoalPlanner } from './components/GoalPlanner';
 import { CalendarWorkspace } from './components/CalendarWorkspace';
 import { AndroidMobileApp } from './components/AndroidMobileApp';
+import { EisenhowerMatrix } from './components/EisenhowerMatrix';
+import { RelationshipOrgDashboard } from './components/RelationshipOrgDashboard';
+import { FocusDoteTimer } from './components/FocusDoteTimer';
+import { HourlyCalendarPanel } from './components/HourlyCalendarPanel';
+import { TaskViewsContainer } from './components/TaskViewsContainer';
+import { JournalDashboard } from './components/JournalDashboard';
+import { HabitDashboard } from './components/HabitDashboard';
 
-const STORAGE_KEY = 'focusflow_todos_v3';
+const STORAGE_KEY = 'focusflow_todos_v4';
 const BRAINDUMP_STORAGE_KEY = 'focusflow_braindump_v2';
 const RADAR_BASE_STORAGE_KEY = 'focusflow_radar_base_v1';
 const TOPICS_STORAGE_KEY = 'focusflow_topics_v1';
 const GOAL_ROADMAPS_STORAGE_KEY = 'focusflow_goal_roadmaps_v1';
+const CONTACTS_STORAGE_KEY = 'focusflow_contacts_v1';
+const ORGS_STORAGE_KEY = 'focusflow_orgs_v1';
+const FOCUS_LOGS_STORAGE_KEY = 'focusflow_focus_logs_v1';
+const JOURNAL_STORAGE_KEY = 'focusflow_journal_v1';
+const HABITS_STORAGE_KEY = 'focusflow_habits_v2';
 
 const CATEGORIES_WITH_ALL: Array<Category | 'All'> = ['All', ...LIFE_AREAS];
 
@@ -148,6 +200,81 @@ export default function App() {
     return getInitialSeedGoalRoadmaps();
   });
 
+  const [contacts, setContacts] = useState<RelationshipContact[]>(() => {
+    try {
+      const saved = localStorage.getItem(CONTACTS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return getInitialSeedRelationships();
+  });
+
+  const [organizations, setOrganizations] = useState<OrganizationItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(ORGS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return getInitialSeedOrganizations();
+  });
+
+  const [focusLogs, setFocusLogs] = useState<FocusSessionLog[]>(() => {
+    try {
+      const saved = localStorage.getItem(FOCUS_LOGS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return getInitialSeedFocusLogs();
+  });
+
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem(JOURNAL_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return getInitialSeedJournalEntries();
+  });
+
+  const [habits, setHabits] = useState<HabitItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(HABITS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+    return getInitialSeedHabits();
+  });
+
   const [radarBaseOverrides, setRadarBaseOverrides] = useState<
     Partial<Record<Category, number>>
   >(() => {
@@ -162,16 +289,20 @@ export default function App() {
     return {};
   });
 
-  // Two app versions: 'tablet' (Tablet/Desktop with Left Nav), 'mobile' (Android 9:16 with Bottom Nav), or 'split' (Both Side-by-Side)
   const [layoutVersion, setLayoutVersion] = useState<AppLayoutVersion>('tablet');
   const [activeView, setActiveView] = useState<WorkspaceTab>('tasks');
+  const [taskViewMode, setTaskViewMode] = useState<TaskViewMode>('list');
+  const [taskRightPanelMode, setTaskRightPanelMode] =
+    useState<TaskRightPanelMode>('insights');
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<Category | 'All'>('All');
   const [priorityFilter, setPriorityFilter] = useState<Priority | 'All'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('dueDate');
-  const [selectedFocusTaskId, setSelectedFocusTaskId] = useState<string | null>(null);
+  const [selectedFocusTaskId, setSelectedFocusTaskId] = useState<string | null>(
+    null
+  );
   const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
 
   useEffect(() => {
@@ -184,9 +315,12 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(BRAINDUMP_STORAGE_KEY, JSON.stringify(brainDumpItems));
+      localStorage.setItem(
+        BRAINDUMP_STORAGE_KEY,
+        JSON.stringify(brainDumpItems)
+      );
     } catch {
-      // Ignore storage quota errors
+      // Ignore
     }
   }, [brainDumpItems]);
 
@@ -194,7 +328,7 @@ export default function App() {
     try {
       localStorage.setItem(TOPICS_STORAGE_KEY, JSON.stringify(topics));
     } catch {
-      // Ignore storage quota errors
+      // Ignore
     }
   }, [topics]);
 
@@ -205,9 +339,52 @@ export default function App() {
         JSON.stringify(goalRoadmaps)
       );
     } catch {
-      // Ignore storage quota errors
+      // Ignore
     }
   }, [goalRoadmaps]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CONTACTS_STORAGE_KEY, JSON.stringify(contacts));
+    } catch {
+      // Ignore
+    }
+  }, [contacts]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ORGS_STORAGE_KEY, JSON.stringify(organizations));
+    } catch {
+      // Ignore
+    }
+  }, [organizations]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FOCUS_LOGS_STORAGE_KEY, JSON.stringify(focusLogs));
+    } catch {
+      // Ignore
+    }
+  }, [focusLogs]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        JOURNAL_STORAGE_KEY,
+        JSON.stringify(journalEntries)
+      );
+    } catch {
+      // Ignore
+    }
+  }, [journalEntries]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(HABITS_STORAGE_KEY, JSON.stringify(habits));
+    } catch {
+      // Ignore
+    }
+  }, [habits]);
 
   useEffect(() => {
     try {
@@ -216,7 +393,7 @@ export default function App() {
         JSON.stringify(radarBaseOverrides)
       );
     } catch {
-      // Ignore storage quota errors
+      // Ignore
     }
   }, [radarBaseOverrides]);
 
@@ -246,6 +423,8 @@ export default function App() {
     category: Category;
     dueDate: string;
     isRepeating: boolean;
+    scheduledHour?: number;
+    quadrant?: EisenhowerQuadrant;
   }) => {
     const newItem = createTodoItem({
       ...params,
@@ -265,6 +444,34 @@ export default function App() {
     setTodos((prev) => toggleTodoCompletion(prev, id));
   };
 
+  const handleMoveKanbanStage = (todoId: string, stage: KanbanStage) => {
+    if (stage === 'done') {
+      const completedTask = didTaskTransitionToCompleted(todos, todoId);
+      if (completedTask) {
+        setCelebration({
+          id: Date.now(),
+          taskTitle: completedTask.title,
+        });
+      }
+    }
+    setTodos((prev) => moveTodoToKanbanStage(prev, todoId, stage));
+  };
+
+  const handleAssignQuadrant = (
+    todoId: string,
+    quadrant: EisenhowerQuadrant
+  ) => {
+    setTodos((prev) => assignTaskQuadrant(prev, todoId, quadrant));
+  };
+
+  const handleAssignScheduledHour = (
+    todoId: string,
+    hour: number | undefined,
+    dateIso: string
+  ) => {
+    setTodos((prev) => assignTodoScheduledHour(prev, todoId, hour, dateIso));
+  };
+
   const handleUpdateTodo = (
     id: string,
     updates: Partial<
@@ -277,6 +484,8 @@ export default function App() {
         | 'dueDate'
         | 'isRepeating'
         | 'streakCount'
+        | 'quadrant'
+        | 'scheduledHour'
       >
     >
   ) => {
@@ -296,6 +505,11 @@ export default function App() {
     setBrainDumpItems(getInitialSeedBrainDump());
     setTopics(getInitialSeedTopics());
     setGoalRoadmaps(getInitialSeedGoalRoadmaps());
+    setContacts(getInitialSeedRelationships());
+    setOrganizations(getInitialSeedOrganizations());
+    setFocusLogs(getInitialSeedFocusLogs());
+    setJournalEntries(getInitialSeedJournalEntries());
+    setHabits(getInitialSeedHabits());
     setRadarBaseOverrides({});
     setStatusFilter('all');
     setCategoryFilter('All');
@@ -450,8 +664,97 @@ export default function App() {
     setTodos((prev) => [newItem, ...prev]);
   };
 
+  // Relationship & Organization Handlers
+  const handleLogRelationshipCheckIn = (contactId: string) => {
+    setContacts((prev) => logRelationshipCheckIn(prev, contactId));
+  };
+
+  const handleAddContact = (params: {
+    name: string;
+    role: string;
+    organizationName: string;
+    lifeArea: Category;
+    cadence: RelationshipCadence;
+    nextAction: string;
+  }) => {
+    const created = createRelationshipContact(params);
+    setContacts((prev) => [created, ...prev]);
+  };
+
+  const handleAddOrganization = (params: {
+    name: string;
+    type: OrganizationCategory;
+    role: string;
+    lifeArea: Category;
+    cadence: string;
+    memberOrContactCount: number;
+    focusGoal: string;
+  }) => {
+    const created = createOrganizationItem(params);
+    setOrganizations((prev) => [created, ...prev]);
+  };
+
+  // DoteTimer Handlers
+  const handleLogFocusSession = (params: {
+    taskId?: string;
+    taskTitle: string;
+    category: Category;
+    durationMinutes: number;
+    mode: FocusTimerMode;
+  }) => {
+    const log = createFocusSessionLog({
+      ...params,
+      completedAt: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    });
+    setFocusLogs((prev) => [log, ...prev]);
+  };
+
+  // Journal Handlers
+  const handleAddJournalEntry = (params: {
+    title: string;
+    content: string;
+    gratitude: string;
+    lifeArea: Category;
+    mood: JournalMood;
+    dateIso: string;
+  }) => {
+    const created = createJournalEntry(params);
+    setJournalEntries((prev) => [created, ...prev]);
+  };
+
+  const handleDeleteJournalEntry = (id: string) => {
+    setJournalEntries((prev) => deleteJournalEntry(prev, id));
+  };
+
+  // Habit & Heatmap Handlers
+  const handleToggleHabitDate = (habitId: string, dateIso: string) => {
+    setHabits((prev) => toggleHabitDateCompletion(prev, habitId, dateIso));
+  };
+
+  const handleAddHabit = (params: {
+    title: string;
+    lifeArea: Category;
+    habitType: HabitCategoryType;
+    oldHabitToReplace?: string;
+    targetPerWeek: number;
+  }) => {
+    const created = createHabitItem(params);
+    setHabits((prev) => [created, ...prev]);
+  };
+
+  // Radar Chart Category Selection -> Automatically opens Relationship Dashboard when 'Social' is clicked
+  const handleRadarSelectCategory = (cat: Category | 'All') => {
+    const nav = resolveRadarAreaNavigation(cat);
+    setCategoryFilter(nav.categoryFilter);
+    setActiveView(nav.targetView);
+  };
+
   const focusQuickAdd = () => {
     setActiveView('tasks');
+    setTaskViewMode('list');
     window.setTimeout(() => {
       const input = document.getElementById('new-task-title');
       if (input) input.focus();
@@ -469,6 +772,35 @@ export default function App() {
       label: 'Tasks',
       badge: stats.active,
       icon: <ListTodo className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'habits',
+      label: 'Habit Heatmap',
+      badge: habits.length,
+      icon: <Flame className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'matrix',
+      label: 'Eisenhower Matrix',
+      icon: <LayoutGrid className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'network',
+      label: 'Relationships & Orgs',
+      badge: contacts.length + organizations.length,
+      icon: <Users className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'journal',
+      label: 'Journal Dashboard',
+      badge: journalEntries.length,
+      icon: <BookText className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'timer',
+      label: 'DoteTimer Focus',
+      badge: focusLogs.length,
+      icon: <Timer className="w-4 h-4 shrink-0" aria-hidden="true" />,
     },
     {
       id: 'goals',
@@ -523,9 +855,9 @@ export default function App() {
         <aside
           aria-label="Tablet and desktop left navigation bar"
           data-testid="tablet-left-nav"
-          className="w-52 sm:w-56 h-full shrink-0 bg-white border-r border-slate-200 p-3.5 flex flex-col justify-between overflow-y-auto"
+          className="w-52 sm:w-56 h-full shrink-0 bg-white border-r border-slate-200 p-3 flex flex-col justify-between overflow-y-auto"
         >
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="px-2 flex items-center justify-between">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
@@ -539,7 +871,7 @@ export default function App() {
             </div>
 
             {/* Left Navigation Links */}
-            <nav aria-label="Left workspace navigation" className="space-y-1">
+            <nav aria-label="Left workspace navigation" className="space-y-0.5">
               {leftRailNavItems.map((item) => {
                 const isActive = activeView === item.id;
                 return (
@@ -548,7 +880,7 @@ export default function App() {
                     type="button"
                     onClick={() => setActiveView(item.id)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`w-full px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer ${
                       isActive
                         ? 'bg-slate-900 text-white'
                         : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
@@ -575,7 +907,7 @@ export default function App() {
             </nav>
 
             {/* 7 Life Areas Quick Filter in Left Rail */}
-            <div className="pt-3 border-t border-slate-100 space-y-1">
+            <div className="pt-2 border-t border-slate-100 space-y-1">
               <div className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
                 7 Life Focus Areas
               </div>
@@ -609,7 +941,7 @@ export default function App() {
           </div>
 
           {/* Daily Progress Summary inside Left Rail */}
-          <div className="pt-3 mt-3 border-t border-slate-100 space-y-2 px-1">
+          <div className="pt-2.5 mt-2 border-t border-slate-100 space-y-2 px-1">
             <div className="flex items-baseline justify-between">
               <span className="text-xs font-semibold text-slate-700">
                 Daily Progress
@@ -677,8 +1009,56 @@ export default function App() {
         <div className="flex-1 h-full overflow-y-auto p-5 @container">
           <div className="grid grid-cols-1 @3xl:grid-cols-12 gap-5 items-start">
             {/* Main Active Workspace */}
-            <section className="@3xl:col-span-7 space-y-5 min-w-0">
-              {activeView === 'goals' ? (
+            <section className="@3xl:col-span-7 space-y-4 min-w-0">
+              {activeView === 'habits' ? (
+                <HabitDashboard
+                  habits={habits}
+                  onToggleHabitDate={handleToggleHabitDate}
+                  onAddHabit={handleAddHabit}
+                />
+              ) : activeView === 'matrix' ? (
+                <EisenhowerMatrix
+                  todos={todos}
+                  onToggleTodo={handleToggleTodo}
+                  onDeleteTodo={handleDeleteTodo}
+                  onAssignQuadrant={handleAssignQuadrant}
+                  onAddTodoInQuadrant={(params) =>
+                    handleAddTodo({ ...params, isRepeating: false })
+                  }
+                />
+              ) : activeView === 'network' ? (
+                <RelationshipOrgDashboard
+                  contacts={contacts}
+                  organizations={organizations}
+                  onLogCheckIn={handleLogRelationshipCheckIn}
+                  onAddContact={handleAddContact}
+                  onAddOrganization={handleAddOrganization}
+                  onPushNextActionToTodo={(title, notes, lifeArea) => {
+                    handleAddTodo({
+                      title,
+                      notes,
+                      priority: 'high',
+                      category: lifeArea,
+                      dueDate: new Date().toISOString().slice(0, 10),
+                      isRepeating: false,
+                    });
+                    setActiveView('tasks');
+                  }}
+                />
+              ) : activeView === 'journal' ? (
+                <JournalDashboard
+                  entries={journalEntries}
+                  onAddEntry={handleAddJournalEntry}
+                  onDeleteEntry={handleDeleteJournalEntry}
+                />
+              ) : activeView === 'timer' ? (
+                <FocusDoteTimer
+                  todos={todos}
+                  focusLogs={focusLogs}
+                  onLogSession={handleLogFocusSession}
+                  onCompleteLinkedTask={handleToggleTodo}
+                />
+              ) : activeView === 'goals' ? (
                 <GoalPlanner
                   topics={topics}
                   roadmaps={goalRoadmaps}
@@ -731,7 +1111,7 @@ export default function App() {
                 />
               ) : (
                 <>
-                  {/* Page Header & Contextual Actions */}
+                  {/* Page Header, View Switcher (List / Kanban / Timeline), and Right-Side Hourly Calendar Toggle */}
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
@@ -749,6 +1129,31 @@ export default function App() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
+                      {/* Toggle Right-Side Hourly Calendar vs Radar & Wheel */}
+                      <button
+                        type="button"
+                        data-testid="toggle-right-hourly-calendar"
+                        onClick={() =>
+                          setTaskRightPanelMode((prev) =>
+                            prev === 'hourly_calendar'
+                              ? 'insights'
+                              : 'hourly_calendar'
+                          )
+                        }
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+                          taskRightPanelMode === 'hourly_calendar'
+                            ? 'bg-emerald-700 text-white border-emerald-700'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>
+                          {taskRightPanelMode === 'hourly_calendar'
+                            ? 'Show Radar & Wheel'
+                            : 'Open Hourly Calendar'}
+                        </span>
+                      </button>
+
                       {stats.completed > 0 && (
                         <button
                           type="button"
@@ -784,40 +1189,95 @@ export default function App() {
                     onAdd={handleAddTodo}
                   />
 
-                  {/* Search, Status Tabs, and Sort Toolbar */}
-                  <div className="flex flex-wrap items-center justify-between gap-2.5 bg-white border border-slate-200 rounded-xl p-2.5">
-                    <div
-                      role="group"
-                      aria-label="Filter tasks by completion status"
-                      className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg"
-                    >
-                      {(
-                        [
-                          { id: 'all', label: `All (${stats.total})` },
-                          { id: 'active', label: `Active (${stats.active})` },
-                          {
-                            id: 'completed',
-                            label: `Completed (${stats.completed})`,
-                          },
-                        ] as const
-                      ).map((tab) => (
+                  {/* Task View Switcher (List View / Kanban View / Timeline View) + Status & Search Toolbar */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-2.5 space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      {/* View Mode Switcher: List View, Kanban View, Timeline View */}
+                      <div
+                        role="group"
+                        aria-label="Select task display view mode"
+                        className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg"
+                      >
                         <button
-                          key={tab.id}
                           type="button"
-                          onClick={() => setStatusFilter(tab.id)}
-                          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                            statusFilter === tab.id
-                              ? 'bg-white text-slate-900 shadow-xs'
+                          data-testid="task-view-mode-list"
+                          onClick={() => setTaskViewMode('list')}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            taskViewMode === 'list'
+                              ? 'bg-slate-900 text-white shadow-2xs'
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
-                          {tab.label}
+                          <ListTodo
+                            className="w-3.5 h-3.5"
+                            aria-hidden="true"
+                          />
+                          <span>List View</span>
                         </button>
-                      ))}
+                        <button
+                          type="button"
+                          data-testid="task-view-mode-kanban"
+                          onClick={() => setTaskViewMode('kanban')}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            taskViewMode === 'kanban'
+                              ? 'bg-slate-900 text-white shadow-2xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Kanban className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Kanban View</span>
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="task-view-mode-timeline"
+                          onClick={() => setTaskViewMode('timeline')}
+                          className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                            taskViewMode === 'timeline'
+                              ? 'bg-slate-900 text-white shadow-2xs'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <GitCommitHorizontal
+                            className="w-3.5 h-3.5"
+                            aria-hidden="true"
+                          />
+                          <span>Timeline View</span>
+                        </button>
+                      </div>
+
+                      <div
+                        role="group"
+                        aria-label="Filter tasks by completion status"
+                        className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg"
+                      >
+                        {(
+                          [
+                            { id: 'all', label: `All (${stats.total})` },
+                            { id: 'active', label: `Active (${stats.active})` },
+                            {
+                              id: 'completed',
+                              label: `Completed (${stats.completed})`,
+                            },
+                          ] as const
+                        ).map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setStatusFilter(tab.id)}
+                            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                              statusFilter === tab.id
+                                ? 'bg-white text-slate-900 shadow-xs'
+                                : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="flex flex-1 min-w-[200px] items-center gap-2">
-                      <div className="relative flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative flex-1 min-w-[180px]">
                         <Search
                           className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
                           aria-hidden="true"
@@ -859,73 +1319,126 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Task List Container */}
-                  <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                    {visibleTodos.length > 0 ? (
-                      <div divide-y="true" role="list" aria-label="Task list">
-                        {visibleTodos.map((todo) => (
-                          <TaskRow
-                            key={todo.id}
-                            todo={todo}
-                            isFocused={selectedFocusTaskId === todo.id}
-                            onToggle={handleToggleTodo}
-                            onDelete={handleDeleteTodo}
-                            onUpdate={handleUpdateTodo}
-                            onAddSubtask={handleAddSubtask}
-                            onToggleSubtask={handleToggleSubtask}
-                            onDeleteSubtask={handleDeleteSubtask}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-12 px-6 text-center">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
-                          {todos.length === 0 ? (
-                            <ListTodo className="w-5 h-5" aria-hidden="true" />
-                          ) : (
-                            <CheckCircle2
-                              className="w-5 h-5"
-                              aria-hidden="true"
+                  {/* Active Task Display Mode: List View, Kanban View, or Timeline View */}
+                  {taskViewMode === 'list' ? (
+                    <div
+                      data-testid="tasks-list-view"
+                      className="bg-white border border-slate-200 rounded-xl overflow-hidden"
+                    >
+                      {visibleTodos.length > 0 ? (
+                        <div divide-y="true" role="list" aria-label="Task list">
+                          {visibleTodos.map((todo) => (
+                            <TaskRow
+                              key={todo.id}
+                              todo={todo}
+                              isFocused={selectedFocusTaskId === todo.id}
+                              onToggle={handleToggleTodo}
+                              onDelete={handleDeleteTodo}
+                              onUpdate={handleUpdateTodo}
+                              onAddSubtask={handleAddSubtask}
+                              onToggleSubtask={handleToggleSubtask}
+                              onDeleteSubtask={handleDeleteSubtask}
                             />
-                          )}
+                          ))}
                         </div>
-                        <h3 className="text-sm font-semibold text-slate-900">
-                          {todos.length === 0
-                            ? 'Your task list is empty'
-                            : 'No matching tasks found'}
-                        </h3>
-                        <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-                          {todos.length === 0
-                            ? 'Add your first task above to start organizing your day.'
-                            : 'Try clearing your search query or switching the active status and life area filters.'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                      ) : (
+                        <div className="py-12 px-6 text-center">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
+                            {todos.length === 0 ? (
+                              <ListTodo
+                                className="w-5 h-5"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <CheckCircle2
+                                className="w-5 h-5"
+                                aria-hidden="true"
+                              />
+                            )}
+                          </div>
+                          <h3 className="text-sm font-semibold text-slate-900">
+                            {todos.length === 0
+                              ? 'Your task list is empty'
+                              : 'No matching tasks found'}
+                          </h3>
+                          <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+                            {todos.length === 0
+                              ? 'Add your first task above to start organizing your day.'
+                              : 'Try clearing your search query or switching the active status and life area filters.'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <TaskViewsContainer
+                      mode={taskViewMode}
+                      todos={visibleTodos}
+                      onToggleTodo={handleToggleTodo}
+                      onDeleteTodo={handleDeleteTodo}
+                      onMoveKanbanStage={handleMoveKanbanStage}
+                    />
+                  )}
                 </>
               )}
             </section>
 
-            {/* Right Insights Column: 7-Axis Life Focus Radar Chart & Task Wheel Picker */}
-            <aside className="@3xl:col-span-5 grid grid-cols-1 @xl:grid-cols-2 @3xl:grid-cols-1 gap-5 items-start">
-              <LifeRadarChart
-                todos={todos}
-                activeCategory={categoryFilter}
-                baseOverrides={radarBaseOverrides}
-                onSelectCategory={(cat) => {
-                  setActiveView('tasks');
-                  setCategoryFilter(cat);
-                }}
-                onAdjustBaseScore={handleAdjustBaseScore}
-              />
+            {/* Right Column: Either Hourly Calendar View (making Wheel Picker & Radar Chart disappear) OR Radar Chart + Task Wheel Picker */}
+            <aside className="@3xl:col-span-5 space-y-4 items-start">
+              {/* Right Panel Mode Switcher Strip */}
+              <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-between gap-1">
+                <button
+                  type="button"
+                  onClick={() => setTaskRightPanelMode('insights')}
+                  className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                    taskRightPanelMode === 'insights'
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Radar & Wheel</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTaskRightPanelMode('hourly_calendar')}
+                  className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                    taskRightPanelMode === 'hourly_calendar'
+                      ? 'bg-slate-900 text-white'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Hourly Calendar</span>
+                </button>
+              </div>
 
-              <TaskWheelPicker
-                todos={todos}
-                activeCategory={categoryFilter}
-                selectedFocusTaskId={selectedFocusTaskId}
-                onSelectFocusTask={setSelectedFocusTaskId}
-                onCompleteTask={handleToggleTodo}
-              />
+              {taskRightPanelMode === 'hourly_calendar' ? (
+                <HourlyCalendarPanel
+                  todos={todos}
+                  onToggleTodo={handleToggleTodo}
+                  onAssignScheduledHour={handleAssignScheduledHour}
+                  onAddTodoAtHour={handleAddTodo}
+                  onCloseHourlyView={() => setTaskRightPanelMode('insights')}
+                />
+              ) : (
+                <div className="grid grid-cols-1 @xl:grid-cols-2 @3xl:grid-cols-1 gap-5 items-start">
+                  <LifeRadarChart
+                    todos={todos}
+                    activeCategory={categoryFilter}
+                    baseOverrides={radarBaseOverrides}
+                    onSelectCategory={handleRadarSelectCategory}
+                    onAdjustBaseScore={handleAdjustBaseScore}
+                  />
+
+                  <TaskWheelPicker
+                    todos={todos}
+                    activeCategory={categoryFilter}
+                    selectedFocusTaskId={selectedFocusTaskId}
+                    onSelectFocusTask={setSelectedFocusTaskId}
+                    onCompleteTask={handleToggleTodo}
+                  />
+                </div>
+              )}
             </aside>
           </div>
         </div>
@@ -938,6 +1451,8 @@ export default function App() {
     <AndroidMobileApp
       activeView={activeView}
       onSelectView={setActiveView}
+      taskViewMode={taskViewMode}
+      onSelectTaskViewMode={setTaskViewMode}
       todos={todos}
       visibleTodos={visibleTodos}
       stats={stats}
@@ -954,6 +1469,9 @@ export default function App() {
       onAddSubtask={handleAddSubtask}
       onToggleSubtask={handleToggleSubtask}
       onDeleteSubtask={handleDeleteSubtask}
+      onMoveKanbanStage={handleMoveKanbanStage}
+      onAssignQuadrant={handleAssignQuadrant}
+      onAssignScheduledHour={handleAssignScheduledHour}
       topics={topics}
       goalRoadmaps={goalRoadmaps}
       selectedTopicId={selectedTopicId}
@@ -973,6 +1491,19 @@ export default function App() {
       onSwipeLeft={handleSwipeLeft}
       onRestoreToDeck={handleRestoreToDeck}
       onDeleteDumpItem={handleDeleteDumpItem}
+      contacts={contacts}
+      organizations={organizations}
+      onLogRelationshipCheckIn={handleLogRelationshipCheckIn}
+      onAddContact={handleAddContact}
+      onAddOrganization={handleAddOrganization}
+      focusLogs={focusLogs}
+      onLogFocusSession={handleLogFocusSession}
+      journalEntries={journalEntries}
+      onAddJournalEntry={handleAddJournalEntry}
+      onDeleteJournalEntry={handleDeleteJournalEntry}
+      habits={habits}
+      onToggleHabitDate={handleToggleHabitDate}
+      onAddHabit={handleAddHabit}
     />
   );
 

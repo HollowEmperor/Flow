@@ -433,5 +433,208 @@ test('getLayoutSpec returns left navigation for tablet/desktop and bottom naviga
   assert.equal(mobileSpec.version, 'mobile');
 });
 
+test('Eisenhower Matrix resolves quadrants, reassigns tasks, and groups by 4 quadrants', async () => {
+  const {
+    resolveTaskQuadrant,
+    assignTaskQuadrant,
+    groupTodosByEisenhower,
+    computeEisenhowerSummary,
+  } = await import('./todoLogic.ts');
+
+  const today = '2026-11-13';
+  const t1 = createTodoItem({
+    id: 'q1-task',
+    title: 'Fix production outage',
+    priority: 'high',
+    dueDate: today,
+  });
+  const t2 = createTodoItem({
+    id: 'q2-task',
+    title: 'Design Q1 architecture roadmap',
+    priority: 'high',
+    dueDate: '2026-11-25',
+  });
+  const t3 = createTodoItem({
+    id: 'q3-task',
+    title: 'Reply to vendor scheduling emails',
+    priority: 'medium',
+    dueDate: today,
+  });
+  const t4 = createTodoItem({
+    id: 'q4-task',
+    title: 'Reorganize archived icon folder',
+    priority: 'low',
+    dueDate: '2026-11-28',
+  });
+
+  assert.equal(resolveTaskQuadrant(t1, today), 'do_first');
+  assert.equal(resolveTaskQuadrant(t2, today), 'schedule');
+  assert.equal(resolveTaskQuadrant(t3, today), 'delegate');
+  assert.equal(resolveTaskQuadrant(t4, today), 'eliminate');
+
+  const list = [t1, t2, t3, t4];
+  const grouped = groupTodosByEisenhower(list, { todayIso: today });
+  assert.equal(grouped.do_first.length, 1);
+  assert.equal(grouped.schedule.length, 1);
+  assert.equal(grouped.delegate.length, 1);
+  assert.equal(grouped.eliminate.length, 1);
+
+  const movedList = assignTaskQuadrant(list, 'q4-task', 'do_first');
+  const movedTask = movedList.find((t) => t.id === 'q4-task')!;
+  assert.equal(movedTask.quadrant, 'do_first');
+  assert.equal(movedTask.priority, 'high');
+
+  const summary = computeEisenhowerSummary(movedList, today);
+  assert.equal(summary.do_first.total, 2);
+  assert.equal(summary.eliminate.total, 0);
+});
+
+test('Hourly Calendar, Relationship/Organization Dashboard, DoteTimer, and Kanban/Timeline views work as expected', async () => {
+  const {
+    formatHourSlotLabel,
+    assignTodoScheduledHour,
+    getHourlyScheduleForDate,
+    createRelationshipContact,
+    logRelationshipCheckIn,
+    createOrganizationItem,
+    formatTimerDisplay,
+    createFocusSessionLog,
+    computeFocusTimerStats,
+    resolveKanbanStage,
+    moveTodoToKanbanStage,
+    groupTodosByKanban,
+    groupTodosForTimeline,
+  } = await import('./todoLogic.ts');
+
+  const today = '2026-11-13';
+  assert.equal(formatHourSlotLabel(9), '09:00 AM');
+  assert.equal(formatHourSlotLabel(14), '02:00 PM');
+
+  const taskA = createTodoItem({
+    id: 'h1',
+    title: 'Morning Deep Work',
+    dueDate: today,
+    scheduledHour: 9,
+  });
+  const taskB = createTodoItem({
+    id: 'h2',
+    title: 'Afternoon Sync',
+    dueDate: today,
+  });
+
+  const withAssignedHour = assignTodoScheduledHour([taskA, taskB], 'h2', 14, today);
+  const hourlySlots = getHourlyScheduleForDate(withAssignedHour, today, 8, 15);
+  const slot9 = hourlySlots.find((s) => s.hour === 9)!;
+  const slot14 = hourlySlots.find((s) => s.hour === 14)!;
+  assert.equal(slot9.tasks.length, 1);
+  assert.equal(slot14.tasks.length, 1);
+
+  // Relationship & Organization
+  const contact = createRelationshipContact({
+    id: 'c1',
+    name: 'Elena Rostova',
+    role: 'Mentor',
+    lifeArea: 'Portfolio',
+    streakCount: 3,
+    lastContactedDate: '2026-11-01',
+  });
+  const afterCheckIn = logRelationshipCheckIn([contact], 'c1', today);
+  assert.equal(afterCheckIn[0].streakCount, 4);
+  assert.equal(afterCheckIn[0].lastContactedDate, today);
+
+  const org = createOrganizationItem({
+    id: 'o1',
+    name: 'CloudScale Guild',
+    role: 'Core Member',
+    lifeArea: 'Portfolio',
+  });
+  assert.equal(org.name, 'CloudScale Guild');
+
+  // DoteTimer
+  assert.equal(formatTimerDisplay(1500), '25:00');
+  const log = createFocusSessionLog({
+    taskTitle: 'System Design',
+    category: 'Portfolio',
+    durationMinutes: 25,
+    mode: 'pomodoro_25',
+  });
+  const focusStats = computeFocusTimerStats([log]);
+  assert.equal(focusStats.totalMinutes, 25);
+  assert.equal(focusStats.byArea.Portfolio, 25);
+
+  // Kanban & Timeline
+  assert.equal(resolveKanbanStage(taskA), 'todo');
+  const movedKanban = moveTodoToKanbanStage(withAssignedHour, 'h1', 'in_progress', today);
+  const kanbanCols = groupTodosByKanban(movedKanban);
+  assert.equal(kanbanCols.in_progress.length, 1);
+  assert.equal(kanbanCols.todo.length, 1);
+
+  const timelineGroups = groupTodosForTimeline(movedKanban, today);
+  assert.equal(timelineGroups.length, 1);
+  assert.equal(timelineGroups[0].items[0].id, 'h1');
+});
+
+test('Radar Social navigation, Journal Dashboard, and Habit Heatmap work as expected', async () => {
+  const {
+    resolveRadarAreaNavigation,
+    createJournalEntry,
+    deleteJournalEntry,
+    createHabitItem,
+    toggleHabitDateCompletion,
+    computeHabitHeatmapGrid,
+    computeHabitCurrentStreak,
+    HABIT_CATEGORY_OPTIONS,
+  } = await import('./todoLogic.ts');
+
+  assert.equal(HABIT_CATEGORY_OPTIONS.length, 3);
+  assert.equal(HABIT_CATEGORY_OPTIONS[0].key, 'build_helpful');
+  assert.equal(HABIT_CATEGORY_OPTIONS[1].key, 'break_unhelpful');
+  assert.equal(HABIT_CATEGORY_OPTIONS[2].key, 'replace_old');
+
+  const socialNav = resolveRadarAreaNavigation('Social');
+  assert.equal(socialNav.targetView, 'network');
+  assert.equal(socialNav.categoryFilter, 'Social');
+
+  const portfolioNav = resolveRadarAreaNavigation('Portfolio');
+  assert.equal(portfolioNav.targetView, 'tasks');
+  assert.equal(portfolioNav.categoryFilter, 'Portfolio');
+
+  // Journal Dashboard
+  const entry = createJournalEntry({
+    id: 'j1',
+    title: 'Evening Synthesis',
+    content: 'Reflected on distributed systems trade-offs.',
+    gratitude: 'Supportive team',
+    lifeArea: 'Knowledge',
+    mood: 'Focused',
+    dateIso: '2026-11-13',
+  });
+  assert.equal(entry.title, 'Evening Synthesis');
+  assert.equal(deleteJournalEntry([entry], 'j1').length, 0);
+
+  // Habit Dashboard & Heatmap
+  const habit = createHabitItem({
+    id: 'hb1',
+    title: 'Read 15 pages',
+    lifeArea: 'Strength',
+    habitType: 'replace_old',
+    oldHabitToReplace: 'Morning doomscrolling',
+    completedDates: ['2026-11-11', '2026-11-12'],
+  });
+  assert.equal(habit.habitType, 'replace_old');
+  assert.equal(habit.oldHabitToReplace, 'Morning doomscrolling');
+  const toggledHabits = toggleHabitDateCompletion([habit], 'hb1', '2026-11-13');
+  assert.equal(toggledHabits[0].completedDates.includes('2026-11-13'), true);
+  assert.equal(computeHabitCurrentStreak(toggledHabits[0], '2026-11-13'), 3);
+
+  const heatmap = computeHabitHeatmapGrid(toggledHabits, 7, '2026-11-13');
+  assert.equal(heatmap.length, 7);
+  const todayCell = heatmap[heatmap.length - 1];
+  assert.equal(todayCell.completedCount, 1);
+  assert.equal(todayCell.intensityLevel, 4);
+});
+
+
+
 
 
