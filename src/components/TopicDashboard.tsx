@@ -14,6 +14,10 @@ import {
   ChevronRight,
   Target,
   Check,
+  Wrench,
+  Award,
+  Crown,
+  Monitor,
 } from 'lucide-react';
 import {
   Category,
@@ -26,6 +30,19 @@ import {
   TopicResourceType,
   computeTopicProgressPercent,
 } from '../utils/todoLogic';
+import { TopicAnimatedLibrary } from './TopicAnimatedLibrary';
+import {
+  TopicPcMonitorStation,
+  isVideoTopicResource,
+} from './TopicPcMonitorStation';
+import {
+  TopicMasteryOverviewCabinet,
+  TopicMasteryStudio,
+  TopicMasteryRecord,
+  getDefaultMasteryRecordForTopic,
+  loadTopicMasteryMap,
+  saveTopicMasteryMap,
+} from './TopicMasterySection';
 
 interface TopicDashboardProps {
   topics: TopicItem[];
@@ -43,7 +60,13 @@ interface TopicDashboardProps {
   onUpdateProgress: (topicId: string, deltaUnits: number) => void;
   onAddResource: (
     topicId: string,
-    resource: { title: string; type: TopicResourceType; url: string }
+    resource: {
+      title: string;
+      type: TopicResourceType;
+      url: string;
+      fileName?: string;
+      fileSizeLabel?: string;
+    }
   ) => void;
   onToggleResource: (topicId: string, resourceId: string) => void;
   onDeleteResource: (topicId: string, resourceId: string) => void;
@@ -53,15 +76,23 @@ interface TopicDashboardProps {
 }
 
 const RESOURCE_TYPES: TopicResourceType[] = [
+  'PDF',
+  'Book',
   'YouTube',
   'Udemy',
   'App',
   'Article',
-  'Book',
 ];
 
 function getResourceIcon(type: TopicResourceType) {
   switch (type) {
+    case 'PDF':
+      return (
+        <FileText
+          className="w-4 h-4 text-purple-700 shrink-0"
+          aria-hidden="true"
+        />
+      );
     case 'YouTube':
       return <Video className="w-4 h-4 text-red-600 shrink-0" aria-hidden="true" />;
     case 'Udemy':
@@ -81,7 +112,7 @@ function getResourceIcon(type: TopicResourceType) {
     case 'Book':
       return (
         <BookOpen
-          className="w-4 h-4 text-amber-700 shrink-0"
+          className="w-4 h-4 text-blue-700 shrink-0"
           aria-hidden="true"
         />
       );
@@ -132,15 +163,98 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
   const [newGoalLabel, setNewGoalLabel] = useState('');
   const [newTargetUnits, setNewTargetUnits] = useState(10);
   const [newUnitName, setNewUnitName] = useState('modules');
+  // New Topic Mastery Outcomes state (1: Skill, 2: Certificate/Medal, 3: Title/Position)
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newAwardKind, setNewAwardKind] = useState<'Certificate' | 'Medal'>(
+    'Certificate'
+  );
+  const [newAwardTitle, setNewAwardTitle] = useState('');
+  const [newRoleKind, setNewRoleKind] = useState<'Title' | 'Position'>('Title');
+  const [newRoleName, setNewRoleName] = useState('');
   const [topicFormError, setTopicFormError] = useState<string | null>(null);
+
+  // Pending mastery overrides for newly created topic
+  const pendingNewMasteryRef = React.useRef<{
+    skillName?: string;
+    awardKind?: 'Certificate' | 'Medal';
+    awardTitle?: string;
+    roleKind?: 'Title' | 'Position';
+    roleName?: string;
+  } | null>(null);
+
+  // Topic Mastery Records Map (persisted in localStorage)
+  const [masteryMap, setMasteryMap] = useState<
+    Record<string, TopicMasteryRecord>
+  >(() => loadTopicMasteryMap(topics));
+
+  React.useEffect(() => {
+    setMasteryMap((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const t of topics) {
+        if (!next[t.id]) {
+          const base = getDefaultMasteryRecordForTopic(t);
+          const pending = pendingNewMasteryRef.current;
+          if (pending) {
+            next[t.id] = {
+              ...base,
+              skillName: pending.skillName?.trim() || base.skillName,
+              awardKind: pending.awardKind ?? base.awardKind,
+              awardTitle: pending.awardTitle?.trim() || base.awardTitle,
+              titlePositionKind: pending.roleKind ?? base.titlePositionKind,
+              titlePositionName:
+                pending.roleName?.trim() || base.titlePositionName,
+            };
+            pendingNewMasteryRef.current = null;
+          } else {
+            next[t.id] = base;
+          }
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [topics]);
+
+  React.useEffect(() => {
+    saveTopicMasteryMap(masteryMap);
+  }, [masteryMap]);
+
+  const handleUpdateMasteryRecord = (
+    topicId: string,
+    updated: TopicMasteryRecord
+  ) => {
+    setMasteryMap((prev) => ({
+      ...prev,
+      [topicId]: updated,
+    }));
+  };
 
   // New Resource form state (inside Topic Detail view)
   const [resTitle, setResTitle] = useState('');
-  const [resType, setResType] = useState<TopicResourceType>('YouTube');
+  const [resType, setResType] = useState<TopicResourceType>('PDF');
   const [resUrl, setResUrl] = useState('');
   const [resError, setResError] = useState<string | null>(null);
+  const [overviewLibraryTopicId, setOverviewLibraryTopicId] = useState<string>(
+    () => topics[0]?.id ?? ''
+  );
+  const [activeMonitorVideoId, setActiveMonitorVideoId] = useState<
+    string | null
+  >(null);
+
+  const handleOpenVideoOnPcMonitor = (resourceId: string) => {
+    setActiveMonitorVideoId(resourceId);
+    const el = document.querySelector(
+      '[data-testid="topic-pc-monitor-station"]'
+    );
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   const selectedTopic = topics.find((t) => t.id === selectedTopicId) ?? null;
+  const overviewLibraryTopic =
+    topics.find((t) => t.id === overviewLibraryTopicId) ?? topics[0] ?? null;
   const selectedRoadmap = selectedTopic
     ? roadmaps.find((r) => r.topicId === selectedTopic.id) ?? null
     : null;
@@ -152,6 +266,13 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
       return;
     }
     setTopicFormError(null);
+    pendingNewMasteryRef.current = {
+      skillName: newSkillName,
+      awardKind: newAwardKind,
+      awardTitle: newAwardTitle,
+      roleKind: newRoleKind,
+      roleName: newRoleName,
+    };
     onCreateTopic({
       title: newTitle,
       description: newDesc,
@@ -165,6 +286,9 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
     setNewTitle('');
     setNewDesc('');
     setNewGoalLabel('');
+    setNewSkillName('');
+    setNewAwardTitle('');
+    setNewRoleName('');
     setShowNewTopicForm(false);
   };
 
@@ -393,7 +517,47 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
           )}
         </section>
 
-        {/* Learning & Practice Resources List (YouTube, Udemy, Apps, Articles, Books) */}
+        {/* 3-Pathway Topic Mastery Verification Studio (1: Skill, 2: Certificate/Medal + Photos, 3: Title/Position) */}
+        <TopicMasteryStudio
+          topic={selectedTopic}
+          record={
+            masteryMap[selectedTopic.id] ??
+            getDefaultMasteryRecordForTopic(selectedTopic)
+          }
+          onUpdateRecord={(updated) =>
+            handleUpdateMasteryRecord(selectedTopic.id, updated)
+          }
+          onMarkTopic100Percent={() => {
+            const remaining = Math.max(
+              0,
+              selectedTopic.targetUnits - selectedTopic.currentUnits
+            );
+            if (remaining > 0) {
+              onUpdateProgress(selectedTopic.id, remaining);
+            }
+          }}
+        />
+
+        {/* Animated Library Bookshelf (Spine-Only View + Direct PDF Book Generator) */}
+        <TopicAnimatedLibrary
+          topic={selectedTopic}
+          onAddResource={onAddResource}
+          onToggleResource={onToggleResource}
+          onDeleteResource={onDeleteResource}
+          onOpenVideoOnMonitor={handleOpenVideoOnPcMonitor}
+        />
+
+        {/* PC & Monitor Video Workstation (Opens Video Links on Monitor Screen) */}
+        <TopicPcMonitorStation
+          topic={selectedTopic}
+          activeVideoResourceId={activeMonitorVideoId}
+          onSelectVideoResourceId={setActiveMonitorVideoId}
+          onAddResource={onAddResource}
+          onToggleResource={onToggleResource}
+          onDeleteResource={onDeleteResource}
+        />
+
+        {/* Learning & Practice Resources List (PDFs, Books, YouTube, Udemy, Apps, Articles) */}
         <section
           aria-label="Topic Resources"
           className="bg-white border border-slate-200 rounded-xl overflow-hidden"
@@ -401,10 +565,10 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
           <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-slate-900">
-                Learning Resources (YouTube, Udemy, Apps & Links)
+                All Shelved Resources (PDFs, Books, Courses &amp; Video Links)
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Curated courses, videos, and tools supporting this topic.
+                Books &amp; PDFs stand on your <strong>Animated Library Shelf</strong>; video links (YouTube &amp; Udemy) open directly inside your <strong>PC Monitor Screen</strong> above.
               </p>
             </div>
             <span className="text-xs font-mono tabular-nums text-slate-500">
@@ -414,64 +578,109 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
 
           {selectedTopic.resources.length > 0 ? (
             <div className="divide-y divide-slate-200/80" role="list">
-              {selectedTopic.resources.map((res) => (
-                <div
-                  key={res.id}
-                  role="listitem"
-                  className="px-6 py-3.5 flex items-center justify-between gap-4 hover:bg-slate-50/60 transition-colors"
-                >
-                  <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <input
-                      type="checkbox"
-                      checked={res.completed}
-                      onChange={() =>
-                        onToggleResource(selectedTopic.id, res.id)
-                      }
-                      aria-label={`Mark resource "${res.title}" as completed`}
-                      className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        {getResourceIcon(res.type)}
-                        <a
-                          href={res.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`text-sm font-medium hover:underline inline-flex items-center gap-1.5 break-words ${
-                            res.completed
-                              ? 'line-through text-slate-400'
-                              : 'text-slate-900'
-                          }`}
-                        >
-                          <span>{res.title}</span>
-                          <ExternalLink
-                            className="w-3 h-3 text-slate-400 shrink-0"
-                            aria-hidden="true"
-                          />
-                        </a>
-                      </div>
-                      <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-                        <span className="font-medium text-slate-700">
-                          {res.type}
-                        </span>
-                        <span aria-hidden="true">·</span>
-                        <span className="truncate max-w-xs font-mono text-[11px] text-slate-400">
-                          {res.url}
-                        </span>
+              {selectedTopic.resources.map((res) => {
+                const isVideo = isVideoTopicResource(res);
+                const isPlayingOnMonitor = activeMonitorVideoId === res.id;
+                return (
+                  <div
+                    key={res.id}
+                    role="listitem"
+                    className={`px-6 py-3.5 flex items-center justify-between gap-4 transition-colors ${
+                      isPlayingOnMonitor
+                        ? 'bg-blue-50/70'
+                        : 'hover:bg-slate-50/60'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3 min-w-0 flex-1">
+                      <input
+                        type="checkbox"
+                        checked={res.completed}
+                        onChange={() =>
+                          onToggleResource(selectedTopic.id, res.id)
+                        }
+                        aria-label={`Mark resource "${res.title}" as completed`}
+                        className="mt-1 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {getResourceIcon(res.type)}
+                          {isVideo ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenVideoOnPcMonitor(res.id)}
+                              className={`text-left text-sm font-semibold hover:text-blue-700 inline-flex items-center gap-1.5 break-words cursor-pointer ${
+                                res.completed
+                                  ? 'line-through text-slate-400'
+                                  : 'text-slate-900'
+                              }`}
+                            >
+                              <span>{res.title}</span>
+                              <span className="px-2 py-0.5 rounded bg-blue-600 text-white text-[10px] font-bold inline-flex items-center gap-1">
+                                <Monitor className="w-3 h-3" />
+                                <span>
+                                  {isPlayingOnMonitor
+                                    ? 'On PC Monitor'
+                                    : 'Open on Monitor'}
+                                </span>
+                              </span>
+                            </button>
+                          ) : (
+                            <a
+                              href={res.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={`text-sm font-medium hover:underline inline-flex items-center gap-1.5 break-words ${
+                                res.completed
+                                  ? 'line-through text-slate-400'
+                                  : 'text-slate-900'
+                              }`}
+                            >
+                              <span>{res.title}</span>
+                              <ExternalLink
+                                className="w-3 h-3 text-slate-400 shrink-0"
+                                aria-hidden="true"
+                              />
+                            </a>
+                          )}
+                        </div>
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
+                          <span className="font-medium text-slate-700">
+                            {res.type}
+                          </span>
+                          <span aria-hidden="true">·</span>
+                          <span className="truncate max-w-xs font-mono text-[11px] text-slate-400">
+                            {res.url}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <button
-                    type="button"
-                    onClick={() => onDeleteResource(selectedTopic.id, res.id)}
-                    aria-label={`Remove resource "${res.title}"`}
-                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" aria-hidden="true" />
-                  </button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isVideo && (
+                        <button
+                          type="button"
+                          data-testid={`open-video-on-monitor-${res.id}`}
+                          onClick={() => handleOpenVideoOnPcMonitor(res.id)}
+                          className="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          <Monitor className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="hidden sm:inline">PC Monitor</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onDeleteResource(selectedTopic.id, res.id)
+                        }
+                        aria-label={`Remove resource "${res.title}"`}
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="py-8 px-6 text-center text-xs text-slate-500">
@@ -725,6 +934,79 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
             </div>
           </div>
 
+          {/* 3 Mastery Completion Outcomes Configuration in New Topic Form */}
+          <div className="pt-3 border-t border-slate-200 space-y-2.5">
+            <div className="text-xs font-bold text-slate-800">
+              How Will You Know You Have Mastered This Topic? (Define 3 Completion Rewards)
+            </div>
+            <div className="grid grid-cols-1 @sm:grid-cols-3 gap-3">
+              <div className="p-3 rounded-xl bg-emerald-50/50 border border-emerald-200 space-y-1.5">
+                <label className="block text-[11px] font-bold text-emerald-900">
+                  1. Skill You Will Gain
+                </label>
+                <input
+                  type="text"
+                  value={newSkillName}
+                  onChange={(e) => setNewSkillName(e.target.value)}
+                  placeholder="e.g., System Design Mastery"
+                  className="w-full text-xs text-slate-900 bg-white border border-emerald-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-blue-900">
+                    2. {newAwardKind}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNewAwardKind((prev) =>
+                        prev === 'Certificate' ? 'Medal' : 'Certificate'
+                      )
+                    }
+                    className="text-[10px] font-bold text-blue-700 underline cursor-pointer"
+                  >
+                    Switch to {newAwardKind === 'Certificate' ? 'Medal' : 'Certificate'}
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={newAwardTitle}
+                  onChange={(e) => setNewAwardTitle(e.target.value)}
+                  placeholder={`e.g., Official ${newAwardKind} (Attach photos inside)`}
+                  className="w-full text-xs text-slate-900 bg-white border border-blue-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-blue-600"
+                />
+              </div>
+
+              <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-purple-900">
+                    3. New {newRoleKind}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNewRoleKind((prev) =>
+                        prev === 'Title' ? 'Position' : 'Title'
+                      )
+                    }
+                    className="text-[10px] font-bold text-purple-700 underline cursor-pointer"
+                  >
+                    Switch to {newRoleKind === 'Title' ? 'Position' : 'Title'}
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder={`e.g., Lead Architect / Senior Fellow`}
+                  className="w-full text-xs text-slate-900 bg-white border border-purple-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-purple-600"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -743,10 +1025,45 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
         </form>
       )}
 
+      {/* Topic Mastery Trophy & Verification Cabinet (1: Skills, 2: Certificates/Medals with Photos, 3: Titles/Positions) */}
+      <TopicMasteryOverviewCabinet
+        topics={topics}
+        masteryMap={masteryMap}
+        onSelectTopic={(id) => setSelectedTopicId(id)}
+      />
+
+      {/* Animated Library Bookshelf + Desktop PC & Monitor Video Workstation */}
+      {overviewLibraryTopic && (
+        <div className="space-y-5">
+          <TopicAnimatedLibrary
+            topic={overviewLibraryTopic}
+            topics={topics}
+            onSelectTopic={(id) => setOverviewLibraryTopicId(id)}
+            onAddResource={onAddResource}
+            onToggleResource={onToggleResource}
+            onDeleteResource={onDeleteResource}
+            onOpenVideoOnMonitor={handleOpenVideoOnPcMonitor}
+          />
+
+          <TopicPcMonitorStation
+            topic={overviewLibraryTopic}
+            topics={topics}
+            activeVideoResourceId={activeMonitorVideoId}
+            onSelectVideoResourceId={setActiveMonitorVideoId}
+            onSelectTopic={(id) => setOverviewLibraryTopicId(id)}
+            onAddResource={onAddResource}
+            onToggleResource={onToggleResource}
+            onDeleteResource={onDeleteResource}
+          />
+        </div>
+      )}
+
       {/* Topics Cards Grid */}
       <div className="grid grid-cols-1 @md:grid-cols-2 gap-3.5" role="list">
         {topics.map((topic) => {
           const pct = computeTopicProgressPercent(topic);
+          const mRecord =
+            masteryMap[topic.id] ?? getDefaultMasteryRecordForTopic(topic);
           return (
             <button
               key={topic.id}
@@ -780,6 +1097,31 @@ export const TopicDashboard: React.FC<TopicDashboardProps> = ({
                 <p className="mt-1 text-xs text-slate-600 line-clamp-2 leading-relaxed">
                   {topic.description}
                 </p>
+
+                {/* 3 Mastery Outcomes Preview Strip on Topic Card */}
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-900 text-[10px] font-semibold">
+                    <Wrench className="w-3 h-3 text-emerald-600" />
+                    <span className="truncate max-w-[140px]">
+                      {mRecord.skillName}
+                    </span>
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-900 text-[10px] font-semibold">
+                    <Award className="w-3 h-3 text-blue-600" />
+                    <span>
+                      {mRecord.awardKind} ({mRecord.awardPhotos.length} photo
+                      {mRecord.awardPhotos.length === 1 ? '' : 's'})
+                    </span>
+                  </span>
+
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-purple-900 text-[10px] font-semibold">
+                    <Crown className="w-3 h-3 text-purple-700" />
+                    <span className="truncate max-w-[140px]">
+                      {mRecord.titlePositionName}
+                    </span>
+                  </span>
+                </div>
               </div>
 
               <div className="w-full pt-3 border-t border-slate-100 space-y-2">

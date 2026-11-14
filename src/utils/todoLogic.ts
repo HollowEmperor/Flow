@@ -39,13 +39,20 @@ export interface TodoItem {
   subtasks: Subtask[];
   isRepeating?: boolean;
   streakCount?: number;
+  completedDates?: string[]; // Dates (YYYY-MM-DD) this task was completed
   lastCompletedDate?: string;
   quadrant?: EisenhowerQuadrant;
   scheduledHour?: number; // 0..23 hour slot for Hourly Calendar view
   kanbanStage?: KanbanStage;
 }
 
-export type TopicResourceType = 'YouTube' | 'Udemy' | 'App' | 'Article' | 'Book';
+export type TopicResourceType =
+  | 'PDF'
+  | 'Book'
+  | 'YouTube'
+  | 'Udemy'
+  | 'App'
+  | 'Article';
 
 export interface TopicResource {
   id: string;
@@ -53,6 +60,8 @@ export interface TopicResource {
   type: TopicResourceType;
   url: string;
   completed: boolean;
+  fileName?: string;
+  fileSizeLabel?: string;
 }
 
 export interface TopicItem {
@@ -143,6 +152,7 @@ export function createTodoItem(params: {
   subtasks?: Subtask[];
   isRepeating?: boolean;
   streakCount?: number;
+  completedDates?: string[];
   lastCompletedDate?: string;
   quadrant?: EisenhowerQuadrant;
   scheduledHour?: number;
@@ -172,6 +182,7 @@ export function createTodoItem(params: {
     subtasks: params.subtasks ?? [],
     isRepeating,
     streakCount,
+    completedDates: params.completedDates ? [...params.completedDates] : undefined,
     lastCompletedDate: params.lastCompletedDate,
     quadrant: params.quadrant,
     scheduledHour,
@@ -191,10 +202,16 @@ export function toggleTodoCompletion(
 
     if (todo.isRepeating) {
       if (nextCompleted) {
+        const nextStreak = currentStreak + 1;
+        const existingDates = todo.completedDates ?? [];
+        const nextDates = existingDates.includes(todayIso)
+          ? existingDates
+          : [...existingDates, todayIso];
         return {
           ...todo,
           completed: true,
-          streakCount: currentStreak + 1,
+          streakCount: nextStreak,
+          completedDates: nextDates,
           lastCompletedDate: todayIso,
         };
       } else {
@@ -204,6 +221,21 @@ export function toggleTodoCompletion(
           streakCount: Math.max(0, currentStreak - 1),
         };
       }
+    }
+
+    if (nextCompleted) {
+      const nextStreak = Math.max(1, currentStreak + 1);
+      const existingDates = todo.completedDates ?? [];
+      const nextDates = existingDates.includes(todayIso)
+        ? existingDates
+        : [...existingDates, todayIso];
+      return {
+        ...todo,
+        completed: true,
+        streakCount: nextStreak,
+        completedDates: nextDates,
+        lastCompletedDate: todayIso,
+      };
     }
 
     return { ...todo, completed: nextCompleted };
@@ -827,25 +859,49 @@ export function addTopicResource(
     title: string;
     type: TopicResourceType;
     url: string;
+    fileName?: string;
+    fileSizeLabel?: string;
   }
 ): TopicItem[] {
-  const cleanTitle = resource.title.trim();
   const cleanUrl = resource.url.trim();
+  const inferredTitleFromPdf =
+    !resource.title.trim() && (resource.fileName || cleanUrl)
+      ? (resource.fileName || cleanUrl.split('/').pop() || 'Untitled PDF')
+          .replace(/\.pdf$/i, '')
+          .replace(/[-_]+/g, ' ')
+          .trim()
+      : resource.title.trim();
+
+  const cleanTitle = inferredTitleFromPdf;
   if (!cleanTitle || !cleanUrl) return topics;
 
-  const formattedUrl =
-    cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
-      ? cleanUrl
-      : `https://${cleanUrl}`;
+  const isLocalOrProtocolUrl =
+    cleanUrl.startsWith('http://') ||
+    cleanUrl.startsWith('https://') ||
+    cleanUrl.startsWith('blob:') ||
+    cleanUrl.startsWith('data:') ||
+    cleanUrl.toLowerCase().endsWith('.pdf');
+
+  const formattedUrl = isLocalOrProtocolUrl ? cleanUrl : `https://${cleanUrl}`;
+
+  const effectiveType: TopicResourceType =
+    cleanUrl.toLowerCase().endsWith('.pdf') ||
+    (resource.fileName && resource.fileName.toLowerCase().endsWith('.pdf'))
+      ? 'PDF'
+      : resource.type;
 
   return topics.map((t) => {
     if (t.id !== topicId) return t;
     const newRes: TopicResource = {
-      id: resource.id ?? `res-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id:
+        resource.id ??
+        `res-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: cleanTitle,
-      type: resource.type,
+      type: effectiveType,
       url: formattedUrl,
       completed: false,
+      fileName: resource.fileName,
+      fileSizeLabel: resource.fileSizeLabel,
     };
     return {
       ...t,
@@ -918,6 +974,15 @@ export function getInitialSeedTopics(): TopicItem[] {
           type: 'App',
           url: 'https://excalidraw.com',
           completed: false,
+        },
+        {
+          id: 'res-104',
+          title: 'Designing Data-Intensive Applications (Kleppmann).pdf',
+          type: 'PDF',
+          url: 'https://dataintensive.net/ddia-summary.pdf',
+          completed: false,
+          fileName: 'Designing_Data_Intensive_Applications.pdf',
+          fileSizeLabel: '4.2 MB PDF',
         },
       ],
     },
@@ -1386,6 +1451,11 @@ export type AppLayoutVersion = 'tablet' | 'mobile' | 'split';
 
 export type WorkspaceTab =
   | 'tasks'
+  | 'backlog'
+  | 'affirmations'
+  | 'reflect'
+  | 'bingo'
+  | 'plan'
   | 'habits'
   | 'matrix'
   | 'network'
@@ -1662,6 +1732,42 @@ export function getHourlyScheduleForDate(
     });
   }
   return slots;
+}
+
+export const HOURLY_DRAG_MIME_TYPE = 'application/x-focusflow-todo-id';
+
+export function dropTaskIntoHourlySlot(
+  todos: TodoItem[],
+  draggedTodoId: string | null | undefined,
+  targetHour: number | undefined,
+  targetDateIso: string = getTodayIsoDate()
+): {
+  todos: TodoItem[];
+  scheduledTask: TodoItem | null;
+} {
+  const cleanId = (draggedTodoId ?? '').trim();
+  if (!cleanId) {
+    return { todos, scheduledTask: null };
+  }
+  const existing = todos.find((t) => t.id === cleanId);
+  if (!existing) {
+    return { todos, scheduledTask: null };
+  }
+  const normalizedHour =
+    targetHour === undefined
+      ? undefined
+      : Math.max(0, Math.min(23, Math.floor(targetHour)));
+  const updatedTodos = assignTodoScheduledHour(
+    todos,
+    cleanId,
+    normalizedHour,
+    targetDateIso
+  );
+  const scheduledTask = updatedTodos.find((t) => t.id === cleanId) ?? null;
+  return {
+    todos: updatedTodos,
+    scheduledTask,
+  };
 }
 
 // ============================================================================
@@ -2115,6 +2221,107 @@ export function groupTodosForTimeline(
 
 export type JournalMood = 'Peak' | 'Focused' | 'Calm' | 'Reflective';
 
+export type JournalNotePolarity = 'positive' | 'negative';
+
+export type NegativeBurnPhase =
+  | 'idle'
+  | 'crumpling'
+  | 'burning'
+  | 'smoke'
+  | 'released';
+
+export interface NegativeBurnPhaseInfo {
+  phase: NegativeBurnPhase;
+  stepIndex: number;
+  label: string;
+  description: string;
+  progressPercent: number;
+}
+
+export const NEGATIVE_BURN_PHASE_META: Record<
+  NegativeBurnPhase,
+  NegativeBurnPhaseInfo
+> = {
+  idle: {
+    phase: 'idle',
+    stepIndex: 0,
+    label: '1. Write Negative Card',
+    description:
+      'Write the worry, frustration, or negative thought onto the paper sheet.',
+    progressPercent: 0,
+  },
+  crumpling: {
+    phase: 'crumpling',
+    stepIndex: 1,
+    label: '2. Crumpling Paper Ball',
+    description:
+      'Crushing and folding the flat paper note inward into a tight crumpled paper ball...',
+    progressPercent: 35,
+  },
+  burning: {
+    phase: 'burning',
+    stepIndex: 2,
+    label: '3. Burning Paper Ball',
+    description:
+      'Flames ignite the crumpled paper ball, charring the creases into glowing embers...',
+    progressPercent: 70,
+  },
+  smoke: {
+    phase: 'smoke',
+    stepIndex: 3,
+    label: '4. Smoke Rising & Fading',
+    description:
+      'The burned paper turns to ash as curling wisps of smoke drift upward and disappear...',
+    progressPercent: 92,
+  },
+  released: {
+    phase: 'released',
+    stepIndex: 4,
+    label: 'Released · Smoke Disappeared',
+    description:
+      'The negative paper ball has burned away and the smoke has completely vanished.',
+    progressPercent: 100,
+  },
+};
+
+export interface BurnedNegativeNoteStats {
+  burnedCount: number;
+  lastBurnedDateIso: string | null;
+  byLifeArea: Record<Category, number>;
+}
+
+export function getInitialBurnedNegativeStats(): BurnedNegativeNoteStats {
+  return {
+    burnedCount: 0,
+    lastBurnedDateIso: null,
+    byLifeArea: {
+      Portfolio: 0,
+      Karma: 0,
+      Knowledge: 0,
+      Personality: 0,
+      Social: 0,
+      Strength: 0,
+      Aesthetics: 0,
+    },
+  };
+}
+
+export function recordBurnedNegativeNote(
+  current: BurnedNegativeNoteStats,
+  lifeArea: Category,
+  dateIso: string = getTodayIsoDate()
+): BurnedNegativeNoteStats {
+  const area = normalizeCategory(lifeArea);
+  return {
+    burnedCount: current.burnedCount + 1,
+    lastBurnedDateIso: dateIso,
+    byLifeArea: {
+      ...current.byLifeArea,
+      [area]: (current.byLifeArea[area] ?? 0) + 1,
+    },
+  };
+}
+
 export interface JournalEntry {
   id: string;
   title: string;
@@ -2124,6 +2331,7 @@ export interface JournalEntry {
   mood: JournalMood;
   dateIso: string;
   createdAt: number;
+  polarity?: JournalNotePolarity;
 }
 
 export function createJournalEntry(params: {
@@ -2135,13 +2343,17 @@ export function createJournalEntry(params: {
   mood?: JournalMood;
   dateIso?: string;
   createdAt?: number;
+  polarity?: JournalNotePolarity;
 }): JournalEntry {
   const cleanTitle = params.title.trim();
   const cleanContent = params.content.trim();
   const cleanGratitude = (params.gratitude ?? '').trim();
   if (!cleanTitle && !cleanContent && !cleanGratitude) {
-    throw new Error('Journal title, reflection content, or gratitude note is required');
+    throw new Error(
+      'Journal title, reflection content, or gratitude note is required'
+    );
   }
+  const polarity: JournalNotePolarity = params.polarity ?? 'positive';
   return {
     id:
       params.id ??
@@ -2157,7 +2369,45 @@ export function createJournalEntry(params: {
     mood: params.mood ?? 'Focused',
     dateIso: params.dateIso || getTodayIsoDate(),
     createdAt: params.createdAt ?? Date.now(),
+    polarity,
   };
+}
+
+/**
+ * Creates a Positive Note entry that is guaranteed to connect to the Gratitude Jar
+ * by folding its positive message into a Gratitude Star (populating `gratitude`
+ * from the positive note text if a separate gratitude field wasn't supplied).
+ */
+export function createPositiveJournalEntry(params: {
+  id?: string;
+  title?: string;
+  positiveNote: string;
+  gratitude?: string;
+  lifeArea: Category;
+  mood?: JournalMood;
+  dateIso?: string;
+  createdAt?: number;
+}): JournalEntry {
+  const cleanTitle = (params.title ?? '').trim();
+  const cleanPositive = params.positiveNote.trim();
+  const cleanGratitude = (params.gratitude ?? '').trim();
+  const effectiveGratitude = cleanGratitude || cleanPositive || cleanTitle;
+  if (!effectiveGratitude) {
+    throw new Error('Positive note text is required to fold a gratitude star');
+  }
+  return createJournalEntry({
+    id: params.id,
+    title:
+      cleanTitle ||
+      `${normalizeCategory(params.lifeArea)} Positive Note · Gratitude Star`,
+    content: cleanPositive,
+    gratitude: effectiveGratitude,
+    lifeArea: params.lifeArea,
+    mood: params.mood ?? 'Peak',
+    dateIso: params.dateIso,
+    createdAt: params.createdAt,
+    polarity: 'positive',
+  });
 }
 
 export function deleteJournalEntry(
@@ -2197,13 +2447,13 @@ const STAR_PALETTE_BY_AREA: Record<
   Category,
   { fill: string; stroke: string }
 > = {
-  Portfolio: { fill: '#FBBF24', stroke: '#B45309' }, // Warm Amber Gold
-  Karma: { fill: '#34D399', stroke: '#047857' }, // Mint Emerald
-  Knowledge: { fill: '#60A5FA', stroke: '#1D4ED8' }, // Celestial Blue
-  Personality: { fill: '#F472B6', stroke: '#BE185D' }, // Origami Rose
-  Social: { fill: '#FB923C', stroke: '#C2410C' }, // Coral Tangerine
-  Strength: { fill: '#A78BFA', stroke: '#5B21B6' }, // Lavender Violet
-  Aesthetics: { fill: '#2DD4BF', stroke: '#0F766E' }, // Seafoam Teal
+  Portfolio: { fill: '#8B5CF6', stroke: '#4C1D95' }, // Royal Purple
+  Karma: { fill: '#10B981', stroke: '#047857' }, // Emerald Green
+  Knowledge: { fill: '#3B82F6', stroke: '#1D4ED8' }, // Cobalt Blue
+  Personality: { fill: '#A855F7', stroke: '#6B21A8' }, // Amethyst Violet
+  Social: { fill: '#34D399', stroke: '#059669' }, // Mint Green
+  Strength: { fill: '#6366F1', stroke: '#3730A3' }, // Indigo Blue-Purple
+  Aesthetics: { fill: '#38BDF8', stroke: '#0284C7' }, // Sky Blue
 };
 
 function hashStringDeterministically(input: string): number {
@@ -2505,9 +2755,16 @@ export interface MemoSpikeSlip {
   streakCount: number;
   stackIndex: number;
   bottomOffsetPx: number;
+  xOffsetPx: number;
   rotationDeg: number;
+  sideTiltPx: number;
+  leftWingCurlPx: number;
+  rightWingCurlPx: number;
+  perspectiveSkewPx: number;
   paperBgHex: string;
   paperBorderHex: string;
+  ruleLineHex: string;
+  stampColorHex: string;
   spikeAmplitude: number;
 }
 
@@ -2515,22 +2772,69 @@ export interface MemoSpikeStats {
   spikedCount: number;
   activeRemainingCount: number;
   spikeVelocityScore: number;
+  stackHeightMm: number;
   slips: MemoSpikeSlip[];
   waveformPoints: string;
 }
 
 const SLIP_COLORS_BY_AREA: Record<
   Category,
-  { bg: string; border: string }
+  { bg: string; border: string; rule: string; stamp: string }
 > = {
-  Portfolio: { bg: '#FEF3C7', border: '#F59E0B' },
-  Karma: { bg: '#D1FAE5', border: '#10B981' },
-  Knowledge: { bg: '#DBEAFE', border: '#3B82F6' },
-  Personality: { bg: '#FCE7F3', border: '#EC4899' },
-  Social: { bg: '#FFEDD5', border: '#F97316' },
-  Strength: { bg: '#EDE9FE', border: '#8B5CF6' },
-  Aesthetics: { bg: '#CCFBF1', border: '#14B8A6' },
+  Portfolio: {
+    bg: '#F5F3FF',
+    border: '#7C3AED',
+    rule: '#DDD6FE',
+    stamp: '#5B21B6',
+  },
+  Karma: {
+    bg: '#ECFDF5',
+    border: '#059669',
+    rule: '#A7F3D0',
+    stamp: '#047857',
+  },
+  Knowledge: {
+    bg: '#EFF6FF',
+    border: '#2563EB',
+    rule: '#BFDBFE',
+    stamp: '#1D4ED8',
+  },
+  Personality: {
+    bg: '#FAF5FF',
+    border: '#9333EA',
+    rule: '#E9D5FF',
+    stamp: '#6B21A8',
+  },
+  Social: {
+    bg: '#F0FDF4',
+    border: '#10B981',
+    rule: '#BBF7D0',
+    stamp: '#047857',
+  },
+  Strength: {
+    bg: '#EEF2FF',
+    border: '#4F46E5',
+    rule: '#C7D2FE',
+    stamp: '#3730A3',
+  },
+  Aesthetics: {
+    bg: '#F0F9FF',
+    border: '#0284C7',
+    rule: '#BAE6FD',
+    stamp: '#0369A1',
+  },
 };
+
+const SIDE_TILT_OFFSETS = [-4, 3, -2, 5, -3, 2, -5, 4];
+const PERSPECTIVE_SKEWS = [-12, 10, -7, 14, -10, 8, -13, 11];
+const WING_CURL_PROFILES: Array<{ left: number; right: number }> = [
+  { left: 3, right: -3 },
+  { left: -4, right: 3 },
+  { left: 2, right: 4 },
+  { left: -3, right: -2 },
+  { left: 4, right: -4 },
+  { left: -2, right: 3 },
+];
 
 export function computeMemoSpikeStats(todos: TodoItem[]): MemoSpikeStats {
   const completedTodos = todos
@@ -2543,8 +2847,19 @@ export function computeMemoSpikeStats(todos: TodoItem[]): MemoSpikeStats {
 
   const slips: MemoSpikeSlip[] = completedTodos.map((todo, idx) => {
     const hash = hashStringDeterministically(todo.id + todo.title);
-    const rotationDeg = (hash % 23) - 11; // -11deg to +11deg
-    const bottomOffsetPx = Math.min(138, 16 + idx * 18);
+    const sideTiltPx =
+      SIDE_TILT_OFFSETS[idx % SIDE_TILT_OFFSETS.length] + ((hash % 3) - 1);
+    const perspectiveSkewPx =
+      PERSPECTIVE_SKEWS[idx % PERSPECTIVE_SKEWS.length] +
+      (((hash >> 2) % 5) - 2);
+    const curlPreset =
+      WING_CURL_PROFILES[(idx + (hash % 3)) % WING_CURL_PROFILES.length];
+    const leftWingCurlPx = curlPreset.left;
+    const rightWingCurlPx = curlPreset.right;
+
+    // Side-view vertical stacking: bottom sheet rests directly on the brass collar (34px)
+    // and each subsequent horizontal sheet stacks 14px higher along the vertical spindle rod.
+    const bottomOffsetPx = Math.min(148, 34 + idx * 14);
     const area = normalizeCategory(todo.category);
     const palette = SLIP_COLORS_BY_AREA[area] ?? SLIP_COLORS_BY_AREA.Portfolio;
     const priorityBoost =
@@ -2562,9 +2877,16 @@ export function computeMemoSpikeStats(todos: TodoItem[]): MemoSpikeStats {
       streakCount: todo.streakCount ?? 0,
       stackIndex: idx,
       bottomOffsetPx,
-      rotationDeg,
+      xOffsetPx: 0,
+      rotationDeg: sideTiltPx,
+      sideTiltPx,
+      leftWingCurlPx,
+      rightWingCurlPx,
+      perspectiveSkewPx,
       paperBgHex: palette.bg,
       paperBorderHex: palette.border,
+      ruleLineHex: palette.rule,
+      stampColorHex: palette.stamp,
       spikeAmplitude,
     };
   });
@@ -2578,11 +2900,11 @@ export function computeMemoSpikeStats(todos: TodoItem[]): MemoSpikeStats {
     100,
     baseVelocity + highPrioritySpiked * 12 + Math.min(18, spikedCount * 4)
   );
+  const stackHeightMm = spikedCount * 12;
 
   // Build deterministic MemoSpike ECG/oscilloscope waveform points (240x48)
   const samples = 14;
   const w = 240;
-  const h = 48;
   const baselineY = 36;
   const pts: string[] = [];
 
@@ -2592,9 +2914,7 @@ export function computeMemoSpikeStats(todos: TodoItem[]): MemoSpikeStats {
     const slipIdx = i - (samples - 1 - slips.length);
     if (slipIdx >= 0 && slipIdx < slips.length) {
       const amp = slips[slipIdx].spikeAmplitude;
-      y = Number(
-        Math.max(5, baselineY - (amp / 100) * 30).toFixed(1)
-      );
+      y = Number(Math.max(5, baselineY - (amp / 100) * 30).toFixed(1));
     } else if (i % 2 === 1) {
       y = baselineY - 3;
     }
@@ -2605,6 +2925,7 @@ export function computeMemoSpikeStats(todos: TodoItem[]): MemoSpikeStats {
     spikedCount,
     activeRemainingCount,
     spikeVelocityScore,
+    stackHeightMm,
     slips,
     waveformPoints: pts.join(' '),
   };
@@ -2845,10 +3166,129 @@ export function computeHabitHeatmapGrid(
   });
 }
 
+export interface HabitDailyRingCell {
+  dateIso: string;
+  weekdayShort: string; // e.g. 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'
+  dayNumber: string; // e.g. '10', '11', '12', '13', '14'
+  completedCount: number;
+  totalHabits: number;
+  progressRatio: number; // 0..1
+  isToday: boolean;
+}
+
+const SHORT_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+export function computeHabitDailyRings(
+  habits: HabitItem[],
+  daysCount: number = 14,
+  todayIso: string = getTodayIsoDate()
+): HabitDailyRingCell[] {
+  const dates = getRecentIsoDates(daysCount, todayIso);
+  const totalHabits = Math.max(1, habits.length);
+
+  return dates.map((dateIso) => {
+    const parts = dateIso.split('-').map(Number);
+    const dObj = new Date(
+      parts[0] || 2026,
+      (parts[1] || 11) - 1,
+      parts[2] || 14
+    );
+    const weekdayShort = SHORT_WEEKDAYS[dObj.getDay()];
+    const dayNumber = String(parts[2] || 1);
+    const completedCount = habits.filter((h) =>
+      h.completedDates.includes(dateIso)
+    ).length;
+    const progressRatio =
+      habits.length === 0 ? 0 : Math.min(1, completedCount / totalHabits);
+
+    return {
+      dateIso,
+      weekdayShort,
+      dayNumber,
+      completedCount,
+      totalHabits: habits.length,
+      progressRatio,
+      isToday: dateIso === todayIso,
+    };
+  });
+}
+
+export interface HabitYearWeekColumn {
+  weekIndex: number;
+  monthLabel: string | null;
+  days: Array<{
+    dateIso: string;
+    completed: boolean;
+    isToday: boolean;
+  }>;
+}
+
+/**
+ * Computes a 365-day (53-week x 7-day) numberless heatmap grid for an individual habit card.
+ */
+export function computeHabitYearWeeksGrid(
+  habit: HabitItem,
+  todayIso: string = getTodayIsoDate()
+): {
+  weeks: HabitYearWeekColumn[];
+  totalYearCompletions: number;
+} {
+  const yearDates = getRecentIsoDates(365, todayIso);
+  const completedSet = new Set(habit.completedDates);
+  let totalYearCompletions = 0;
+
+  const weeks: HabitYearWeekColumn[] = [];
+  let lastSeenMonth = -1;
+
+  for (let i = 0; i < yearDates.length; i += 7) {
+    const slice = yearDates.slice(i, i + 7);
+    const firstIso = slice[0] ?? todayIso;
+    const mNum = (Number(firstIso.split('-')[1]) || 1) - 1;
+    const monthLabel =
+      mNum !== lastSeenMonth ? SHORT_MONTHS[Math.max(0, Math.min(11, mNum))] : null;
+    lastSeenMonth = mNum;
+
+    const days = slice.map((dIso) => {
+      const completed = completedSet.has(dIso);
+      if (completed) totalYearCompletions += 1;
+      return {
+        dateIso: dIso,
+        completed,
+        isToday: dIso === todayIso,
+      };
+    });
+
+    weeks.push({
+      weekIndex: weeks.length,
+      monthLabel,
+      days,
+    });
+  }
+
+  return {
+    weeks,
+    totalYearCompletions,
+  };
+}
+
 export function getInitialSeedHabits(
   todayIso: string = getTodayIsoDate()
 ): HabitItem[] {
-  const last28 = getRecentIsoDates(28, todayIso);
+  const last365 = getRecentIsoDates(365, todayIso);
   return [
     {
       id: 'habit-1',
@@ -2856,7 +3296,7 @@ export function getInitialSeedHabits(
       lifeArea: 'Portfolio',
       habitType: 'build_helpful',
       targetPerWeek: 6,
-      completedDates: last28.filter((_, idx) => idx % 5 !== 0),
+      completedDates: last365.filter((_, idx) => idx % 5 !== 0 && idx % 13 !== 0),
     },
     {
       id: 'habit-2',
@@ -2864,7 +3304,7 @@ export function getInitialSeedHabits(
       lifeArea: 'Strength',
       habitType: 'build_helpful',
       targetPerWeek: 5,
-      completedDates: last28.filter((_, idx) => idx % 3 !== 0),
+      completedDates: last365.filter((_, idx) => idx % 3 !== 0),
     },
     {
       id: 'habit-3',
@@ -2872,7 +3312,7 @@ export function getInitialSeedHabits(
       lifeArea: 'Knowledge',
       habitType: 'break_unhelpful',
       targetPerWeek: 7,
-      completedDates: last28.filter((_, idx) => idx % 4 !== 1),
+      completedDates: last365.filter((_, idx) => idx % 4 !== 1),
     },
     {
       id: 'habit-4',
@@ -2880,7 +3320,7 @@ export function getInitialSeedHabits(
       lifeArea: 'Strength',
       habitType: 'break_unhelpful',
       targetPerWeek: 7,
-      completedDates: last28.filter((_, idx) => idx % 2 === 0 || idx > 22),
+      completedDates: last365.filter((_, idx) => idx % 2 === 0 || idx > 350),
     },
     {
       id: 'habit-5',
@@ -2889,7 +3329,7 @@ export function getInitialSeedHabits(
       lifeArea: 'Knowledge',
       habitType: 'replace_old',
       targetPerWeek: 6,
-      completedDates: last28.filter((_, idx) => idx % 3 === 1 || idx >= 24),
+      completedDates: last365.filter((_, idx) => idx % 3 !== 2 || idx >= 352),
     },
     {
       id: 'habit-6',
@@ -2898,10 +3338,662 @@ export function getInitialSeedHabits(
       lifeArea: 'Personality',
       habitType: 'replace_old',
       targetPerWeek: 5,
-      completedDates: last28.filter((_, idx) => idx % 2 === 1 || idx >= 23),
+      completedDates: last365.filter((_, idx) => idx % 2 === 1 || idx >= 355),
     },
   ];
 }
+
+// ============================================================================
+// Pure CSS 3D Desk Calendar Tear-Off Startup Animation (Once-Per-Day + Mockup)
+// ============================================================================
+
+export interface CalendarTearSheet {
+  dateIso: string;
+  monthName: string;
+  dayNumberPadded: string;
+  weekdayName: string;
+  subtitle: string;
+  daysAgo: number;
+  isToday: boolean;
+}
+
+export interface CalendarTearOffSequence {
+  shouldPlayOnStartup: boolean;
+  startDateIso: string;
+  endDateIso: string;
+  missedDaysCount: number;
+  sheets: CalendarTearSheet[];
+}
+
+const MONTH_NAMES_UPPER = [
+  'JANUARY',
+  'FEBRUARY',
+  'MARCH',
+  'APRIL',
+  'MAY',
+  'JUNE',
+  'JULY',
+  'AUGUST',
+  'SEPTEMBER',
+  'OCTOBER',
+  'NOVEMBER',
+  'DECEMBER',
+] as const;
+
+const WEEKDAY_NAMES_UPPER = [
+  'SUNDAY',
+  'MONDAY',
+  'TUESDAY',
+  'WEDNESDAY',
+  'THURSDAY',
+  'FRIDAY',
+  'SATURDAY',
+] as const;
+
+const SPECIAL_CALENDAR_LABELS: Record<string, string> = {
+  '01-01': "New Year's Day",
+  '02-14': "Valentine's Day",
+  '04-22': 'Earth Day Focus',
+  '07-04': 'Independence Day',
+  '10-31': 'Halloween Day',
+  '11-14': 'Deep Work & Creative Flow Day',
+  '12-25': 'Winter Solstice & Holiday',
+  '12-31': "New Year's Eve Reflection",
+};
+
+export function offsetIsoDate(baseIso: string, deltaDays: number): string {
+  const parts = baseIso.split('-').map(Number);
+  const d = new Date(
+    parts[0] || 2026,
+    (parts[1] || 11) - 1,
+    parts[2] || 14
+  );
+  d.setDate(d.getDate() + deltaDays);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+export function diffIsoDays(startIso: string, endIso: string): number {
+  const sParts = startIso.split('-').map(Number);
+  const eParts = endIso.split('-').map(Number);
+  const sUtc = Date.UTC(
+    sParts[0] || 2026,
+    (sParts[1] || 11) - 1,
+    sParts[2] || 14
+  );
+  const eUtc = Date.UTC(
+    eParts[0] || 2026,
+    (eParts[1] || 11) - 1,
+    eParts[2] || 14
+  );
+  return Math.round((eUtc - sUtc) / (1000 * 60 * 60 * 24));
+}
+
+export function formatCalendarTearSheet(
+  dateIso: string,
+  todayIso: string = getTodayIsoDate()
+): CalendarTearSheet {
+  const parts = dateIso.split('-').map(Number);
+  const year = parts[0] || 2026;
+  const monthIdx = Math.max(0, Math.min(11, (parts[1] || 1) - 1));
+  const dayNum = parts[2] || 1;
+  const dateObj = new Date(year, monthIdx, dayNum);
+  const weekdayIdx = dateObj.getDay();
+
+  const daysAgo = Math.max(0, diffIsoDays(dateIso, todayIso));
+  const isToday = dateIso === todayIso;
+  const mmdd = `${String(monthIdx + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+
+  let subtitle = SPECIAL_CALENDAR_LABELS[mmdd] ?? '';
+  if (!subtitle) {
+    if (isToday) {
+      subtitle = "Today's Fresh Desk Sheet";
+    } else if (daysAgo === 1) {
+      subtitle = 'Yesterday · Tear Off to Advance';
+    } else {
+      subtitle = `${daysAgo} Days Ago · Missed Sheet`;
+    }
+  }
+
+  return {
+    dateIso,
+    monthName: MONTH_NAMES_UPPER[monthIdx],
+    dayNumberPadded: String(dayNum).padStart(2, '0'),
+    weekdayName: WEEKDAY_NAMES_UPPER[weekdayIdx],
+    subtitle,
+    daysAgo,
+    isToday,
+  };
+}
+
+/**
+ * Computes the calendar tear-off sheet sequence from the last date the app was opened
+ * (`lastOpenedDateIso`) to `todayIso`.
+ * - Runs automatically only once per day (`shouldPlayOnStartup: lastOpenedDateIso !== todayIso`).
+ * - If `lastOpenedDateIso` is null (first launch), defaults to 3 days ago so the user
+ *   can immediately see the 3-day catch-up tear-off mockup on first load.
+ */
+export function computeCalendarTearOffSequence(
+  lastOpenedDateIso: string | null,
+  todayIso: string = getTodayIsoDate(),
+  maxTearSheets: number = 10
+): CalendarTearOffSequence {
+  const alreadyOpenedToday = lastOpenedDateIso === todayIso;
+  const rawStartIso =
+    !lastOpenedDateIso || lastOpenedDateIso >= todayIso
+      ? offsetIsoDate(todayIso, -3)
+      : lastOpenedDateIso;
+
+  const rawDiff = diffIsoDays(rawStartIso, todayIso);
+  const clampedDiff = Math.max(1, Math.min(maxTearSheets, rawDiff));
+  const effectiveStartIso = offsetIsoDate(todayIso, -clampedDiff);
+
+  const sheets: CalendarTearSheet[] = [];
+  for (let i = clampedDiff; i >= 0; i--) {
+    const dIso = offsetIsoDate(todayIso, -i);
+    sheets.push(formatCalendarTearSheet(dIso, todayIso));
+  }
+
+  return {
+    shouldPlayOnStartup: !alreadyOpenedToday,
+    startDateIso: effectiveStartIso,
+    endDateIso: todayIso,
+    missedDaysCount: clampedDiff,
+    sheets,
+  };
+}
+
+// ============================================================================
+// Excalidraw Plan Dashboard (Visual Whiteboard & Architecture Planner)
+// ============================================================================
+
+export type ExcalidrawTemplateKey =
+  | 'life_architecture'
+  | 'sprint_flow'
+  | 'system_design';
+
+export interface ExcalidrawPlanBoard {
+  id: string;
+  title: string;
+  lifeArea: Category;
+  templateKey: ExcalidrawTemplateKey;
+  updatedAt: number;
+  elementsJson: string; // Serialized Excalidraw elements array
+}
+
+export function createExcalidrawPlanBoard(params: {
+  id?: string;
+  title: string;
+  lifeArea: Category;
+  templateKey?: ExcalidrawTemplateKey;
+  elementsJson?: string;
+  updatedAt?: number;
+}): ExcalidrawPlanBoard {
+  const cleanTitle = params.title.trim();
+  if (!cleanTitle) {
+    throw new Error('Plan board title is required');
+  }
+  return {
+    id:
+      params.id ??
+      `plan-board-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    title: cleanTitle,
+    lifeArea: normalizeCategory(params.lifeArea),
+    templateKey: params.templateKey ?? 'life_architecture',
+    updatedAt: params.updatedAt ?? Date.now(),
+    elementsJson: params.elementsJson ?? '[]',
+  };
+}
+
+// ============================================================================
+// Task Bingo Card & Automatic Task Punch Cards (>3 Days Done Auto-Minting)
+// ============================================================================
+
+export const PUNCH_CARD_MIN_DAYS_THRESHOLD = 3; // "more than thrice" => > 3 days (4+ days)
+
+export interface PunchHoleSlot {
+  slotNumber: number; // 1-indexed day slot
+  isPunched: boolean;
+  dateIso: string | null;
+  shortDateLabel: string;
+  isMilestone: boolean;
+  milestoneTag?: string;
+}
+
+export type PunchCardTier = 'bronze' | 'silver' | 'gold';
+
+export interface TaskPunchCard {
+  id: string;
+  todoId: string;
+  title: string;
+  category: Category;
+  priority: Priority;
+  daysDone: number;
+  cardCapacity: number;
+  completedDates: string[];
+  lastCompletedDate: string;
+  tier: PunchCardTier;
+  tierLabel: string;
+  serialCode: string;
+  progressPercent: number;
+  slots: PunchHoleSlot[];
+}
+
+export interface BingoCellItem {
+  index: number; // 0..24
+  row: number; // 0..4
+  col: number; // 0..4
+  colLetter: 'B' | 'I' | 'N' | 'G' | 'O';
+  id: string;
+  linkedTodoId?: string;
+  title: string;
+  category: Category;
+  daysDone: number;
+  hasAutoPunchCard: boolean;
+  isFreeSpace: boolean;
+  isStamped: boolean;
+  isInWinningBingoLine: boolean;
+}
+
+export interface BingoLineWin {
+  id: string;
+  label: string;
+  type: 'row' | 'col' | 'diagonal';
+  indices: number[];
+}
+
+export interface TaskBingoBoardResult {
+  cells: BingoCellItem[];
+  winningLines: BingoLineWin[];
+  bingoCount: number;
+  stampedCount: number;
+  autoPunchCards: TaskPunchCard[];
+  almostPunchCardTasks: Array<{
+    todo: TodoItem;
+    daysDone: number;
+    daysRemainingToAutoCard: number;
+  }>;
+}
+
+/**
+ * Returns the total number of days a task has been completed.
+ */
+export function getTaskDaysDoneCount(todo: TodoItem): number {
+  const fromDates = todo.completedDates?.length ?? 0;
+  const fromStreak = todo.streakCount ?? 0;
+  const fromCompleted = todo.completed ? 1 : 0;
+  return Math.max(fromDates, fromStreak, fromCompleted);
+}
+
+/**
+ * Checks whether a task has been done "more than thrice" (> 3 days, i.e. 4+ days)
+ * to automatically generate a Task Punch Card.
+ */
+export function doesTaskQualifyForPunchCard(
+  todo: TodoItem,
+  threshold: number = PUNCH_CARD_MIN_DAYS_THRESHOLD
+): boolean {
+  return getTaskDaysDoneCount(todo) > threshold;
+}
+
+/**
+ * Synthesizes a sorted list of ISO dates representing each day the task was done.
+ */
+export function getTaskCompletedDatesList(
+  todo: TodoItem,
+  todayIso: string = getTodayIsoDate()
+): string[] {
+  const totalDays = getTaskDaysDoneCount(todo);
+  if (totalDays <= 0) return [];
+
+  const explicit = Array.from(new Set(todo.completedDates ?? [])).sort();
+  if (explicit.length >= totalDays) {
+    return explicit.slice(-totalDays);
+  }
+
+  const anchorIso = todo.lastCompletedDate || todayIso;
+  const resultSet = new Set<string>(explicit);
+  let cursorOffset = 0;
+  while (resultSet.size < totalDays && cursorOffset < 365) {
+    const candidate = offsetIsoDate(anchorIso, -cursorOffset);
+    resultSet.add(candidate);
+    cursorOffset += 1;
+  }
+
+  return Array.from(resultSet).sort();
+}
+
+/**
+ * Logs +1 completed day on a task (punching a day hole).
+ * If the task crosses > 3 days (from <=3 to 4), `newlyMintedPunchCard` is true!
+ */
+export function punchTaskDay(
+  todos: TodoItem[],
+  todoId: string,
+  todayIso: string = getTodayIsoDate()
+): {
+  todos: TodoItem[];
+  daysDone: number;
+  newlyMintedPunchCard: boolean;
+  taskTitle: string;
+} {
+  let daysDone = 0;
+  let newlyMintedPunchCard = false;
+  let taskTitle = '';
+
+  const updated = todos.map((todo) => {
+    if (todo.id !== todoId) return todo;
+    taskTitle = todo.title;
+    const prevDays = getTaskDaysDoneCount(todo);
+    const nextDays = prevDays + 1;
+    daysDone = nextDays;
+    newlyMintedPunchCard =
+      prevDays <= PUNCH_CARD_MIN_DAYS_THRESHOLD &&
+      nextDays > PUNCH_CARD_MIN_DAYS_THRESHOLD;
+
+    const existingDates = getTaskCompletedDatesList(todo, todayIso);
+    // Find a new date stamp to record (todayIso if not present, otherwise next offset day)
+    let nextDateToAdd = todayIso;
+    let step = 0;
+    while (existingDates.includes(nextDateToAdd) && step < 400) {
+      step += 1;
+      nextDateToAdd = offsetIsoDate(todayIso, -step);
+    }
+    const nextDates = Array.from(
+      new Set([...existingDates, nextDateToAdd])
+    ).sort();
+
+    return {
+      ...todo,
+      completed: true,
+      isRepeating: true,
+      streakCount: nextDays,
+      completedDates: nextDates,
+      lastCompletedDate: todayIso,
+    };
+  });
+
+  return {
+    todos: updated,
+    daysDone,
+    newlyMintedPunchCard,
+    taskTitle,
+  };
+}
+
+/**
+ * Automatically builds Task Punch Cards for every task done more than thrice (> 3 days).
+ */
+export function extractAutoTaskPunchCards(
+  todos: TodoItem[],
+  todayIso: string = getTodayIsoDate()
+): TaskPunchCard[] {
+  const qualifying = todos
+    .filter((t) => doesTaskQualifyForPunchCard(t))
+    .slice()
+    .sort((a, b) => getTaskDaysDoneCount(b) - getTaskDaysDoneCount(a));
+
+  return qualifying.map((todo, idx) => {
+    const daysDone = getTaskDaysDoneCount(todo);
+    const dates = getTaskCompletedDatesList(todo, todayIso);
+    const cardCapacity = Math.max(10, Math.ceil((daysDone + 2) / 5) * 5);
+
+    let tier: PunchCardTier = 'bronze';
+    let tierLabel = 'Bronze Punch Card · 4+ Days';
+    if (daysDone >= 14) {
+      tier = 'gold';
+      tierLabel = 'Gold Master Punch Card · 14+ Days';
+    } else if (daysDone >= 7) {
+      tier = 'silver';
+      tierLabel = 'Silver Streak Punch Card · 7+ Days';
+    }
+
+    const areaPrefix = normalizeCategory(todo.category)
+      .slice(0, 4)
+      .toUpperCase();
+    const serialCode = `PC-${areaPrefix}-${String(idx + 1).padStart(3, '0')}`;
+
+    const slots: PunchHoleSlot[] = [];
+    for (let i = 1; i <= cardCapacity; i++) {
+      const isPunched = i <= daysDone;
+      const dateIso = isPunched ? (dates[i - 1] ?? todayIso) : null;
+      const shortDateLabel = dateIso ? dateIso.slice(5) : `Day ${i}`;
+      const isMilestone = i === 4 || i === 7 || i === 10 || i === 14 || i === 20;
+      const milestoneTag =
+        i === 4
+          ? 'Auto-Card'
+          : i === 7
+            ? '1-Wk'
+            : i === 10
+              ? '10-Day'
+              : i === 14
+                ? '2-Wk'
+                : i === 20
+                  ? 'Master'
+                  : undefined;
+
+      slots.push({
+        slotNumber: i,
+        isPunched,
+        dateIso,
+        shortDateLabel,
+        isMilestone,
+        milestoneTag,
+      });
+    }
+
+    return {
+      id: `punch-card-${todo.id}`,
+      todoId: todo.id,
+      title: todo.title,
+      category: normalizeCategory(todo.category),
+      priority: todo.priority,
+      daysDone,
+      cardCapacity,
+      completedDates: dates,
+      lastCompletedDate: dates[dates.length - 1] ?? todayIso,
+      tier,
+      tierLabel,
+      serialCode,
+      progressPercent: Math.min(100, Math.round((daysDone / cardCapacity) * 100)),
+      slots,
+    };
+  });
+}
+
+const BINGO_LETTERS: Array<'B' | 'I' | 'N' | 'G' | 'O'> = [
+  'B',
+  'I',
+  'N',
+  'G',
+  'O',
+];
+
+const FALLBACK_BINGO_PROMPTS: Array<{
+  title: string;
+  category: Category;
+  daysDone: number;
+}> = [
+  { title: 'Deep Work Architecture Block', category: 'Portfolio', daysDone: 5 },
+  { title: 'Zero Inbox & Code Review', category: 'Portfolio', daysDone: 4 },
+  { title: 'Open-Source Mentorship Session', category: 'Karma', daysDone: 4 },
+  { title: 'Community Kindness Check-In', category: 'Karma', daysDone: 2 },
+  { title: '30m Technical Book Synthesis', category: 'Knowledge', daysDone: 7 },
+  { title: 'Flashcard Spaced Repetition', category: 'Knowledge', daysDone: 5 },
+  { title: 'Impromptu Vocal Storytelling', category: 'Personality', daysDone: 4 },
+  { title: 'Evening Stoic Reflection Note', category: 'Personality', daysDone: 3 },
+  { title: 'Reach Out to High-Trust Peer', category: 'Social', daysDone: 4 },
+  { title: 'Host Coffee or Design Catch-Up', category: 'Social', daysDone: 2 },
+  { title: '45m Compound Strength Session', category: 'Strength', daysDone: 9 },
+  { title: 'Morning Thoracic Mobility Flow', category: 'Strength', daysDone: 6 },
+  { title: '10k Steps & Zone-2 Walk', category: 'Strength', daysDone: 5 },
+  { title: 'Minimalist Desk Reset', category: 'Aesthetics', daysDone: 3 },
+  { title: 'Typography & Layout Study', category: 'Aesthetics', daysDone: 4 },
+  { title: 'Ship Daily Pull Request', category: 'Portfolio', daysDone: 8 },
+  { title: 'Zero Late-Night Scrolling', category: 'Knowledge', daysDone: 6 },
+  { title: 'Write 1 Gratitude Star Note', category: 'Karma', daysDone: 5 },
+  { title: 'Hydration 3L Daily Target', category: 'Strength', daysDone: 7 },
+  { title: ' Calibrate Studio Lighting', category: 'Aesthetics', daysDone: 4 },
+  { title: 'Practice Active Listening', category: 'Social', daysDone: 3 },
+  { title: 'Review 5Y→1W Goal Horizon', category: 'Portfolio', daysDone: 4 },
+  { title: '25m DoteTimer Sprint', category: 'Knowledge', daysDone: 5 },
+  { title: 'Declutter Digital Desktop', category: 'Aesthetics', daysDone: 4 },
+];
+
+/**
+ * Builds the 5x5 Task & Habit BINGO Board + Automatic Task Punch Cards.
+ */
+export function computeTaskBingoBoard(
+  todos: TodoItem[],
+  manualStampedIndices: number[] = [],
+  todayIso: string = getTodayIsoDate()
+): TaskBingoBoardResult {
+  const autoPunchCards = extractAutoTaskPunchCards(todos, todayIso);
+
+  const almostPunchCardTasks = todos
+    .filter((t) => !doesTaskQualifyForPunchCard(t))
+    .map((todo) => {
+      const daysDone = getTaskDaysDoneCount(todo);
+      return {
+        todo,
+        daysDone,
+        daysRemainingToAutoCard: Math.max(
+          1,
+          PUNCH_CARD_MIN_DAYS_THRESHOLD + 1 - daysDone
+        ),
+      };
+    })
+    .sort((a, b) => b.daysDone - a.daysDone);
+
+  // Build 24 task candidates for the 5x5 grid (index 12 is FREE SPACE)
+  const sortedTodos = todos
+    .slice()
+    .sort((a, b) => getTaskDaysDoneCount(b) - getTaskDaysDoneCount(a));
+
+  const manualSet = new Set(manualStampedIndices);
+  const rawCells: BingoCellItem[] = [];
+  let candidateCursor = 0;
+  let fallbackCursor = 0;
+
+  for (let idx = 0; idx < 25; idx++) {
+    const row = Math.floor(idx / 5);
+    const col = idx % 5;
+    const colLetter = BINGO_LETTERS[col];
+
+    if (idx === 12) {
+      rawCells.push({
+        index: 12,
+        row,
+        col,
+        colLetter,
+        id: 'bingo-cell-free',
+        title: 'FREE SPACE · 3+ Days Auto-Punch Studio',
+        category: 'Portfolio',
+        daysDone: 99,
+        hasAutoPunchCard: true,
+        isFreeSpace: true,
+        isStamped: true,
+        isInWinningBingoLine: false,
+      });
+      continue;
+    }
+
+    if (candidateCursor < sortedTodos.length) {
+      const t = sortedTodos[candidateCursor++];
+      const daysDone = getTaskDaysDoneCount(t);
+      const hasAutoPunchCard = doesTaskQualifyForPunchCard(t);
+      const isStamped =
+        hasAutoPunchCard || Boolean(t.completed) || manualSet.has(idx);
+
+      rawCells.push({
+        index: idx,
+        row,
+        col,
+        colLetter,
+        id: `bingo-cell-${t.id}`,
+        linkedTodoId: t.id,
+        title: t.title,
+        category: normalizeCategory(t.category),
+        daysDone,
+        hasAutoPunchCard,
+        isFreeSpace: false,
+        isStamped,
+        isInWinningBingoLine: false,
+      });
+    } else {
+      const fb =
+        FALLBACK_BINGO_PROMPTS[fallbackCursor++ % FALLBACK_BINGO_PROMPTS.length];
+      const isStamped = manualSet.has(idx);
+      rawCells.push({
+        index: idx,
+        row,
+        col,
+        colLetter,
+        id: `bingo-cell-fallback-${idx}`,
+        title: fb.title.trim(),
+        category: fb.category,
+        daysDone: isStamped ? Math.max(4, fb.daysDone) : Math.min(3, fb.daysDone),
+        hasAutoPunchCard: isStamped,
+        isFreeSpace: false,
+        isStamped,
+        isInWinningBingoLine: false,
+      });
+    }
+  }
+
+  // Evaluate all 12 possible 5-in-a-row BINGO lines
+  const linesToTest: Array<{
+    id: string;
+    label: string;
+    type: 'row' | 'col' | 'diagonal';
+    indices: number[];
+  }> = [
+    { id: 'row-0', label: 'Row 1 Across', type: 'row', indices: [0, 1, 2, 3, 4] },
+    { id: 'row-1', label: 'Row 2 Across', type: 'row', indices: [5, 6, 7, 8, 9] },
+    { id: 'row-2', label: 'Row 3 Across (Center)', type: 'row', indices: [10, 11, 12, 13, 14] },
+    { id: 'row-3', label: 'Row 4 Across', type: 'row', indices: [15, 16, 17, 18, 19] },
+    { id: 'row-4', label: 'Row 5 Across', type: 'row', indices: [20, 21, 22, 23, 24] },
+    { id: 'col-0', label: 'Column B Down', type: 'col', indices: [0, 5, 10, 15, 20] },
+    { id: 'col-1', label: 'Column I Down', type: 'col', indices: [1, 6, 11, 16, 21] },
+    { id: 'col-2', label: 'Column N Down', type: 'col', indices: [2, 7, 12, 17, 22] },
+    { id: 'col-3', label: 'Column G Down', type: 'col', indices: [3, 8, 13, 18, 23] },
+    { id: 'col-4', label: 'Column O Down', type: 'col', indices: [4, 9, 14, 19, 24] },
+    { id: 'diag-main', label: 'Main Diagonal (B1→O5)', type: 'diagonal', indices: [0, 6, 12, 18, 24] },
+    { id: 'diag-anti', label: 'Anti-Diagonal (O1→B5)', type: 'diagonal', indices: [4, 8, 12, 16, 20] },
+  ];
+
+  const winningLines: BingoLineWin[] = [];
+  const winningIndices = new Set<number>();
+
+  for (const line of linesToTest) {
+    if (line.indices.every((i) => rawCells[i]?.isStamped)) {
+      winningLines.push(line);
+      for (const i of line.indices) {
+        winningIndices.add(i);
+      }
+    }
+  }
+
+  const cells = rawCells.map((c) => ({
+    ...c,
+    isInWinningBingoLine: winningIndices.has(c.index),
+  }));
+
+  const stampedCount = cells.filter((c) => c.isStamped).length;
+
+  return {
+    cells,
+    winningLines,
+    bingoCount: winningLines.length,
+    stampedCount,
+    autoPunchCards,
+    almostPunchCardTasks,
+  };
+}
+
+
 
 
 

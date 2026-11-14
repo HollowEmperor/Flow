@@ -831,14 +831,124 @@ test('MemoSpike computes stacked paper slips on spindle, velocity score, and spi
   const spikeStats = computeMemoSpikeStats(withCompleted);
   assert.equal(spikeStats.spikedCount, 2);
   assert.equal(spikeStats.activeRemainingCount, 1);
+  assert.equal(spikeStats.stackHeightMm, 24);
   assert.equal(spikeStats.slips.length, 2);
   assert.equal(spikeStats.slips[0].todoId, 'ms-1');
   assert.equal(spikeStats.slips[1].todoId, 'ms-2');
   // Second slip stacks higher on the vertical spindle than first slip
   assert.ok(spikeStats.slips[1].bottomOffsetPx > spikeStats.slips[0].bottomOffsetPx);
+  assert.equal(typeof spikeStats.slips[0].sideTiltPx, 'number');
+  assert.equal(typeof spikeStats.slips[0].leftWingCurlPx, 'number');
+  assert.equal(typeof spikeStats.slips[0].rightWingCurlPx, 'number');
+  assert.equal(typeof spikeStats.slips[0].perspectiveSkewPx, 'number');
   assert.ok(spikeStats.spikeVelocityScore > 0);
   assert.equal(spikeStats.waveformPoints.split(' ').length, 14);
 });
+
+test('Positive Journal Notes connect directly to the Gratitude Jar and Negative Notes track crumple-burn-smoke release', async () => {
+  const {
+    createPositiveJournalEntry,
+    extractGratitudeStars,
+    computeGratitudeJarStats,
+    getInitialBurnedNegativeStats,
+    recordBurnedNegativeNote,
+    NEGATIVE_BURN_PHASE_META,
+  } = await import('./todoLogic.ts');
+
+  const positiveEntry = createPositiveJournalEntry({
+    id: 'pos-1',
+    positiveNote: 'Shipped the distributed Raft consensus module cleanly!',
+    lifeArea: 'Portfolio',
+    mood: 'Peak',
+    dateIso: '2026-11-13',
+    createdAt: 5000,
+  });
+
+  assert.equal(positiveEntry.polarity, 'positive');
+  assert.equal(
+    positiveEntry.gratitude,
+    'Shipped the distributed Raft consensus module cleanly!'
+  );
+
+  const stars = extractGratitudeStars([positiveEntry]);
+  assert.equal(stars.length, 1);
+  assert.equal(
+    stars[0].gratitudeText,
+    'Shipped the distributed Raft consensus module cleanly!'
+  );
+
+  const jarStats = computeGratitudeJarStats([positiveEntry], 10);
+  assert.equal(jarStats.starCount, 1);
+  assert.equal(jarStats.fillPercent, 10);
+
+  // Verify Negative Note Crumple -> Burn -> Smoke -> Released phase sequence metadata
+  assert.equal(NEGATIVE_BURN_PHASE_META.idle.stepIndex, 0);
+  assert.equal(NEGATIVE_BURN_PHASE_META.crumpling.stepIndex, 1);
+  assert.equal(NEGATIVE_BURN_PHASE_META.burning.stepIndex, 2);
+  assert.equal(NEGATIVE_BURN_PHASE_META.smoke.stepIndex, 3);
+  assert.equal(NEGATIVE_BURN_PHASE_META.released.stepIndex, 4);
+  assert.equal(NEGATIVE_BURN_PHASE_META.released.progressPercent, 100);
+
+  const initialBurnStats = getInitialBurnedNegativeStats();
+  assert.equal(initialBurnStats.burnedCount, 0);
+  const afterBurn1 = recordBurnedNegativeNote(
+    initialBurnStats,
+    'Portfolio',
+    '2026-11-13'
+  );
+  assert.equal(afterBurn1.burnedCount, 1);
+  assert.equal(afterBurn1.byLifeArea.Portfolio, 1);
+  assert.equal(afterBurn1.lastBurnedDateIso, '2026-11-13');
+});
+
+test('Calendar Tear-Off computes multi-day catch-up sequence from last opened date to today and triggers only once per day', async () => {
+  const {
+    offsetIsoDate,
+    formatCalendarTearSheet,
+    computeCalendarTearOffSequence,
+    createExcalidrawPlanBoard,
+  } = await import('./todoLogic.ts');
+
+  const today = '2026-11-14';
+  const threeDaysAgo = offsetIsoDate(today, -3);
+  assert.equal(threeDaysAgo, '2026-11-11');
+
+  // If not opened for 3 days, shouldPlayOnStartup is true and sheets span Nov 11 -> Nov 14 (4 sheets)
+  const seq3Days = computeCalendarTearOffSequence('2026-11-11', today);
+  assert.equal(seq3Days.shouldPlayOnStartup, true);
+  assert.equal(seq3Days.missedDaysCount, 3);
+  assert.equal(seq3Days.sheets.length, 4);
+  assert.equal(seq3Days.sheets[0].dateIso, '2026-11-11');
+  assert.equal(seq3Days.sheets[0].dayNumberPadded, '11');
+  assert.equal(seq3Days.sheets[0].isToday, false);
+  assert.equal(seq3Days.sheets[3].dateIso, '2026-11-14');
+  assert.equal(seq3Days.sheets[3].dayNumberPadded, '14');
+  assert.equal(seq3Days.sheets[3].monthName, 'NOVEMBER');
+  assert.equal(seq3Days.sheets[3].isToday, true);
+
+  // If already opened today, shouldPlayOnStartup is false (runs only once in any given day)
+  const seqSameDay = computeCalendarTearOffSequence(today, today);
+  assert.equal(seqSameDay.shouldPlayOnStartup, false);
+
+  // Check Jan 1 formatting matches reference desk calendar ("JANUARY", "01", "THURSDAY", "New Year's Day")
+  const jan1Sheet = formatCalendarTearSheet('2026-01-01', '2026-01-01');
+  assert.equal(jan1Sheet.monthName, 'JANUARY');
+  assert.equal(jan1Sheet.dayNumberPadded, '01');
+  assert.equal(jan1Sheet.weekdayName, 'THURSDAY');
+  assert.equal(jan1Sheet.subtitle, "New Year's Day");
+
+  // Excalidraw Plan Board creation
+  const planBoard = createExcalidrawPlanBoard({
+    title: 'Q4 Distributed Systems Plan',
+    lifeArea: 'Portfolio',
+    templateKey: 'system_design',
+  });
+  assert.equal(planBoard.title, 'Q4 Distributed Systems Plan');
+  assert.equal(planBoard.lifeArea, 'Portfolio');
+  assert.equal(planBoard.templateKey, 'system_design');
+});
+
+
 
 
 

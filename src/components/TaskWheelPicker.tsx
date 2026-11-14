@@ -16,14 +16,14 @@ interface TaskWheelPickerProps {
 }
 
 const SLICE_PALETTE = [
-  { fill: '#0f172a', text: '#f8fafc' }, // Slate 900
-  { fill: '#047857', text: '#ecfdf5' }, // Emerald 700
-  { fill: '#1e293b', text: '#f1f5f9' }, // Slate 800
-  { fill: '#0f766e', text: '#f0fdfa' }, // Teal 700
-  { fill: '#334155', text: '#f8fafc' }, // Slate 700
-  { fill: '#b45309', text: '#fffbeb' }, // Amber 700
-  { fill: '#1d4ed8', text: '#eff6ff' }, // Blue 700
-  { fill: '#475569', text: '#f8fafc' }, // Slate 600
+  { fill: '#6D28D9', text: '#F5F3FF' }, // Royal Purple 700
+  { fill: '#059669', text: '#ECFDF5' }, // Emerald Green 600
+  { fill: '#2563EB', text: '#EFF6FF' }, // Cobalt Blue 600
+  { fill: '#7C3AED', text: '#FAF5FF' }, // Violet 600
+  { fill: '#047857', text: '#ECFDF5' }, // Deep Green 700
+  { fill: '#1D4ED8', text: '#EFF6FF' }, // Royal Blue 700
+  { fill: '#4F46E5', text: '#EEF2FF' }, // Indigo Blue-Purple 600
+  { fill: '#10B981', text: '#064E3B' }, // Bright Mint Emerald
 ];
 
 function polarToCartesian(cx: number, cy: number, r: number, angleInDegrees: number) {
@@ -160,7 +160,7 @@ export const TaskWheelPicker: React.FC<TaskWheelPickerProps> = ({
               <svg width="22" height="20" viewBox="0 0 22 20" fill="none">
                 <path
                   d="M11 20L1.47372 2.75L20.5263 2.75L11 20Z"
-                  fill="#dc2626"
+                  fill="#7C3AED"
                   stroke="#ffffff"
                   strokeWidth="2"
                 />
@@ -170,7 +170,7 @@ export const TaskWheelPicker: React.FC<TaskWheelPickerProps> = ({
             {/* Rotating SVG Wheel */}
             <div
               data-testid="task-wheel-rotor"
-              className="w-full h-full rounded-full shadow-xs border-4 border-slate-900 overflow-hidden"
+              className="w-full h-full rounded-full shadow-md border-4 border-purple-950 overflow-hidden"
               style={{
                 transform: `rotate(${rotation}deg)`,
                 transition: isSpinning
@@ -186,7 +186,7 @@ export const TaskWheelPicker: React.FC<TaskWheelPickerProps> = ({
               >
                 {count === 1 ? (
                   <g>
-                    <circle cx="110" cy="110" r="110" fill="#0f172a" />
+                    <circle cx="110" cy="110" r="110" fill="#4C1D95" />
                     <text
                       x="110"
                       y="62"
@@ -216,7 +216,7 @@ export const TaskWheelPicker: React.FC<TaskWheelPickerProps> = ({
                       <g key={task.id}>
                         <path
                           d={createSlicePath(110, 110, 110, startAngle, endAngle)}
-                          fill={isSelected ? '#059669' : palette.fill}
+                          fill={isSelected ? '#10B981' : palette.fill}
                           stroke="#ffffff"
                           strokeWidth="1.5"
                         />
@@ -245,7 +245,7 @@ export const TaskWheelPicker: React.FC<TaskWheelPickerProps> = ({
               onClick={handleSpin}
               disabled={isSpinning}
               aria-label="Spin task wheel"
-              className="absolute z-10 w-14 h-14 rounded-full bg-white border-4 border-slate-900 text-slate-900 font-display font-bold text-xs tracking-tight flex items-center justify-center shadow-sm hover:bg-slate-100 active:scale-95 transition-transform disabled:opacity-60 cursor-pointer"
+              className="absolute z-10 w-14 h-14 rounded-full bg-white border-4 border-purple-900 text-purple-950 font-display font-bold text-xs tracking-tight flex items-center justify-center shadow-sm hover:bg-purple-50 active:scale-95 transition-transform disabled:opacity-60 cursor-pointer"
             >
               {isSpinning ? '...' : 'SPIN'}
             </button>
@@ -256,7 +256,7 @@ export const TaskWheelPicker: React.FC<TaskWheelPickerProps> = ({
             type="button"
             onClick={handleSpin}
             disabled={isSpinning}
-            className="mt-4 w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            className="mt-4 w-full py-2.5 px-4 rounded-lg bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-xs"
           >
             <RotateCw
               className={`w-3.5 h-3.5 ${isSpinning ? 'animate-spin' : ''}`}

@@ -7,10 +7,12 @@ import {
   Trash2,
   ArrowRight,
   ArrowLeft,
+  GripVertical,
 } from 'lucide-react';
 import {
   TodoItem,
   KanbanStage,
+  HOURLY_DRAG_MIME_TYPE,
   groupTodosByKanban,
   groupTodosForTimeline,
   formatHourSlotLabel,
@@ -22,6 +24,8 @@ interface TaskViewsContainerProps {
   onToggleTodo: (id: string) => void;
   onDeleteTodo: (id: string) => void;
   onMoveKanbanStage: (todoId: string, stage: KanbanStage) => void;
+  onDragStartTask?: (todoId: string) => void;
+  onDragEndTask?: () => void;
 }
 
 const KANBAN_COLUMNS: Array<{
@@ -56,7 +60,27 @@ export const TaskViewsContainer: React.FC<TaskViewsContainerProps> = ({
   onToggleTodo,
   onDeleteTodo,
   onMoveKanbanStage,
+  onDragStartTask,
+  onDragEndTask,
 }) => {
+  const handleDragStart = (
+    e: React.DragEvent<HTMLDivElement>,
+    todoId: string
+  ) => {
+    e.dataTransfer.setData(HOURLY_DRAG_MIME_TYPE, todoId);
+    e.dataTransfer.setData('text/plain', todoId);
+    e.dataTransfer.effectAllowed = 'move';
+    if (onDragStartTask) {
+      onDragStartTask(todoId);
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (onDragEndTask) {
+      onDragEndTask();
+    }
+  };
+
   if (mode === 'kanban') {
     const columns = groupTodosByKanban(todos);
     return (
@@ -94,18 +118,28 @@ export const TaskViewsContainer: React.FC<TaskViewsContainerProps> = ({
                   colTasks.map((todo) => (
                     <div
                       key={todo.id}
-                      className="bg-white border border-slate-200 rounded-lg p-2.5 shadow-2xs space-y-2"
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, todo.id)}
+                      onDragEnd={handleDragEnd}
+                      title="Drag card into an Hourly Calendar slot"
+                      className="bg-white border border-slate-200 hover:border-emerald-300 rounded-lg p-2.5 shadow-2xs space-y-2 cursor-grab active:cursor-grabbing"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p
-                          className={`text-xs font-semibold leading-snug ${
-                            todo.completed
-                              ? 'line-through text-slate-400'
-                              : 'text-slate-900'
-                          }`}
-                        >
-                          {todo.title}
-                        </p>
+                      <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex items-start gap-1.5 min-w-0">
+                          <GripVertical
+                            className="w-3.5 h-3.5 text-slate-300 shrink-0 mt-0.5"
+                            aria-hidden="true"
+                          />
+                          <p
+                            className={`text-xs font-semibold leading-snug ${
+                              todo.completed
+                                ? 'line-through text-slate-400'
+                                : 'text-slate-900'
+                            }`}
+                          >
+                            {todo.title}
+                          </p>
+                        </div>
                         <button
                           type="button"
                           onClick={() => onDeleteTodo(todo.id)}
@@ -120,6 +154,12 @@ export const TaskViewsContainer: React.FC<TaskViewsContainerProps> = ({
                         <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
                           {todo.category}
                         </span>
+                        {todo.scheduledHour !== undefined && (
+                          <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-semibold flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" aria-hidden="true" />
+                            {formatHourSlotLabel(todo.scheduledHour)}
+                          </span>
+                        )}
                         <span className="font-mono text-slate-500">
                           {todo.dueDate}
                         </span>
@@ -213,13 +253,21 @@ export const TaskViewsContainer: React.FC<TaskViewsContainerProps> = ({
               {group.items.map((todo) => (
                 <div
                   key={todo.id}
-                  className={`p-3 rounded-xl border flex items-start justify-between gap-3 transition-colors ${
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, todo.id)}
+                  onDragEnd={handleDragEnd}
+                  title="Drag task into an Hourly Calendar slot"
+                  className={`p-3 rounded-xl border flex items-start justify-between gap-3 transition-colors cursor-grab active:cursor-grabbing ${
                     todo.completed
                       ? 'bg-slate-50 border-slate-200 opacity-70'
-                      : 'bg-white border-slate-200 hover:border-slate-300'
+                      : 'bg-white border-slate-200 hover:border-emerald-300'
                   }`}
                 >
-                  <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <GripVertical
+                      className="w-3.5 h-3.5 text-slate-300 shrink-0 mt-0.5"
+                      aria-hidden="true"
+                    />
                     <button
                       type="button"
                       onClick={() => onToggleTodo(todo.id)}

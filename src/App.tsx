@@ -23,6 +23,10 @@ import {
   Sparkles,
   Kanban,
   GitCommitHorizontal,
+  PenTool,
+  Grid3X3,
+  Archive,
+  Brain,
 } from 'lucide-react';
 import {
   AppLayoutVersion,
@@ -98,6 +102,11 @@ import {
   toggleHabitDateCompletion,
   getInitialSeedHabits,
   resolveRadarAreaNavigation,
+  computeCalendarTearOffSequence,
+  offsetIsoDate,
+  getTodayIsoDate,
+  punchTaskDay,
+  extractAutoTaskPunchCards,
 } from './utils/todoLogic';
 import { QuickAddTask } from './components/QuickAddTask';
 import { TaskRow } from './components/TaskRow';
@@ -117,8 +126,15 @@ import { TaskViewsContainer } from './components/TaskViewsContainer';
 import { JournalDashboard } from './components/JournalDashboard';
 import { HabitDashboard } from './components/HabitDashboard';
 import { MemoSpikeWidget } from './components/MemoSpikeWidget';
+import { CalendarTearOffModal } from './components/CalendarTearOffModal';
+import { ExcalidrawPlanDashboard } from './components/ExcalidrawPlanDashboard';
+import { BingoPunchCardDashboard } from './components/BingoPunchCardDashboard';
+import { CadenceReviewWidget } from './components/CadenceReviewWidget';
+import { BacklogDashboard } from './components/BacklogDashboard';
+import { AffirmationDashboard } from './components/AffirmationDashboard';
+import { ReflectDashboard } from './components/ReflectDashboard';
 
-const STORAGE_KEY = 'focusflow_todos_v4';
+const STORAGE_KEY = 'focusflow_todos_v5';
 const BRAINDUMP_STORAGE_KEY = 'focusflow_braindump_v2';
 const RADAR_BASE_STORAGE_KEY = 'focusflow_radar_base_v1';
 const TOPICS_STORAGE_KEY = 'focusflow_topics_v1';
@@ -127,7 +143,8 @@ const CONTACTS_STORAGE_KEY = 'focusflow_contacts_v1';
 const ORGS_STORAGE_KEY = 'focusflow_orgs_v1';
 const FOCUS_LOGS_STORAGE_KEY = 'focusflow_focus_logs_v1';
 const JOURNAL_STORAGE_KEY = 'focusflow_journal_v1';
-const HABITS_STORAGE_KEY = 'focusflow_habits_v2';
+const HABITS_STORAGE_KEY = 'focusflow_habits_v3';
+const CALENDAR_TEAR_STORAGE_KEY = 'focusflow_last_calendar_tear_date_v1';
 
 const CATEGORIES_WITH_ALL: Array<Category | 'All'> = ['All', ...LIFE_AREAS];
 
@@ -137,7 +154,7 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           return parsed.map((t: TodoItem) => ({
             ...t,
             category: normalizeCategory(t.category),
@@ -293,8 +310,12 @@ export default function App() {
   const [layoutVersion, setLayoutVersion] = useState<AppLayoutVersion>('tablet');
   const [activeView, setActiveView] = useState<WorkspaceTab>('tasks');
   const [taskViewMode, setTaskViewMode] = useState<TaskViewMode>('list');
+  // Default to 'hourly_calendar' so users can pull any card directly into the Side Hourly Calendar
   const [taskRightPanelMode, setTaskRightPanelMode] =
-    useState<TaskRightPanelMode>('insights');
+    useState<TaskRightPanelMode>('hourly_calendar');
+  const [activeDraggedTaskId, setActiveDraggedTaskId] = useState<string | null>(
+    null
+  );
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [categoryFilter, setCategoryFilter] = useState<Category | 'All'>('All');
@@ -305,6 +326,40 @@ export default function App() {
     null
   );
   const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
+
+  // Daily Calendar Tear-Off Startup State (Plays Automatically Only Once Per Day)
+  const todayIso = useMemo(() => getTodayIsoDate(), []);
+  const [initialLastOpenedDateIso, setInitialLastOpenedDateIso] = useState<
+    string | null
+  >(() => {
+    try {
+      return localStorage.getItem(CALENDAR_TEAR_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  });
+
+  const [isCalendarTearModalOpen, setIsCalendarTearModalOpen] =
+    useState<boolean>(() => {
+      try {
+        const savedDate = localStorage.getItem(CALENDAR_TEAR_STORAGE_KEY);
+        const seq = computeCalendarTearOffSequence(
+          savedDate,
+          getTodayIsoDate()
+        );
+        return seq.shouldPlayOnStartup;
+      } catch {
+        return true;
+      }
+    });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(CALENDAR_TEAR_STORAGE_KEY, todayIso);
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [todayIso]);
 
   useEffect(() => {
     try {
@@ -400,6 +455,11 @@ export default function App() {
 
   const stats = useMemo(() => computeTodoStats(todos), [todos]);
 
+  const autoPunchCardsCount = useMemo(
+    () => extractAutoTaskPunchCards(todos).length,
+    [todos]
+  );
+
   const brainDumpQueueCount = useMemo(
     () => brainDumpItems.filter((i) => i.status === 'queue').length,
     [brainDumpItems]
@@ -445,6 +505,17 @@ export default function App() {
     setTodos((prev) => toggleTodoCompletion(prev, id));
   };
 
+  const handlePunchTaskDay = (todoId: string, dateIso?: string) => {
+    const result = punchTaskDay(todos, todoId, dateIso);
+    setTodos(result.todos);
+    if (result.newlyMintedPunchCard) {
+      setCelebration({
+        id: Date.now(),
+        taskTitle: `Auto Punch Card Minted: ${result.taskTitle} (${result.daysDone} days done!)`,
+      });
+    }
+  };
+
   const handleMoveKanbanStage = (todoId: string, stage: KanbanStage) => {
     if (stage === 'done') {
       const completedTask = didTaskTransitionToCompleted(todos, todoId);
@@ -471,6 +542,41 @@ export default function App() {
     dateIso: string
   ) => {
     setTodos((prev) => assignTodoScheduledHour(prev, todoId, hour, dateIso));
+    setActiveDraggedTaskId(null);
+  };
+
+  // Dragging a Brain Dump card directly into an hour slot on the Side Hourly Calendar
+  const handleScheduleBrainDumpAtHour = (
+    dumpItemId: string,
+    hour: number,
+    dateIso: string
+  ): string | null => {
+    const dumpItem = brainDumpItems.find((d) => d.id === dumpItemId);
+    if (!dumpItem) return null;
+    const newTodo = createTodoItem({
+      title: dumpItem.title,
+      notes: dumpItem.notes || 'Pulled from Brain Dump into Hourly Calendar',
+      priority: dumpItem.priority,
+      category: dumpItem.category,
+      dueDate: dateIso,
+      isRepeating: false,
+      scheduledHour: hour,
+    });
+    setTodos((prev) => [newTodo, ...prev]);
+    setBrainDumpItems((prev) => deleteBrainDumpItem(prev, dumpItemId));
+    setActiveDraggedTaskId(null);
+    return newTodo.title;
+  };
+
+  const handleDragStartTask = (todoId: string) => {
+    setActiveDraggedTaskId(todoId);
+    if (taskRightPanelMode !== 'hourly_calendar') {
+      setTaskRightPanelMode('hourly_calendar');
+    }
+  };
+
+  const handleDragEndTask = () => {
+    setActiveDraggedTaskId(null);
   };
 
   const handleUpdateTodo = (
@@ -592,7 +698,13 @@ export default function App() {
 
   const handleAddTopicResource = (
     topicId: string,
-    resource: { title: string; type: TopicResourceType; url: string }
+    resource: {
+      title: string;
+      type: TopicResourceType;
+      url: string;
+      fileName?: string;
+      fileSizeLabel?: string;
+    }
   ) => {
     setTopics((prev) => addTopicResource(prev, topicId, resource));
   };
@@ -746,7 +858,6 @@ export default function App() {
     setHabits((prev) => [created, ...prev]);
   };
 
-  // Radar Chart Category Selection -> Automatically opens Relationship Dashboard when 'Social' is clicked
   const handleRadarSelectCategory = (cat: Category | 'All') => {
     const nav = resolveRadarAreaNavigation(cat);
     setCategoryFilter(nav.categoryFilter);
@@ -762,6 +873,16 @@ export default function App() {
     }, 20);
   };
 
+  const backlogCount = useMemo(
+    () =>
+      todos.filter(
+        (t) =>
+          !t.completed &&
+          (t.scheduledHour === undefined || t.dueDate > todayIso)
+      ).length,
+    [todos, todayIso]
+  );
+
   const leftRailNavItems: Array<{
     id: WorkspaceTab;
     label: string;
@@ -773,6 +894,33 @@ export default function App() {
       label: 'Tasks',
       badge: stats.active,
       icon: <ListTodo className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'backlog',
+      label: 'Backlog Dashboard',
+      badge: backlogCount,
+      icon: <Archive className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'affirmations',
+      label: 'Affirmation Dashboard',
+      icon: <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'reflect',
+      label: 'Reflect Dashboard',
+      icon: <Brain className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'bingo',
+      label: 'Bingo & Punch Cards',
+      badge: autoPunchCardsCount,
+      icon: <Grid3X3 className="w-4 h-4 shrink-0" aria-hidden="true" />,
+    },
+    {
+      id: 'plan',
+      label: 'Plan Dashboard',
+      icon: <PenTool className="w-4 h-4 shrink-0" aria-hidden="true" />,
     },
     {
       id: 'habits',
@@ -805,7 +953,7 @@ export default function App() {
     },
     {
       id: 'goals',
-      label: 'Goals (5Y→1W)',
+      label: 'Goals (30Y & 5Y→1W)',
       icon: <Target className="w-4 h-4 shrink-0" aria-hidden="true" />,
     },
     {
@@ -827,64 +975,127 @@ export default function App() {
     },
   ];
 
-  // Tablet / Desktop Version with Left Navigation Bar
+  // Borderless Full-Viewport Tablet / Desktop Version with Left Navigation Bar (60-30-10 Neutral + Solid Green · Blue · Purple)
   const renderTabletDesktopVersion = () => (
     <div
       data-testid="tablet-desktop-version"
-      className="h-[min(750px,calc(100vh-116px))] min-h-[580px] w-full bg-slate-50 border-[5px] border-slate-900 rounded-[28px] shadow-xl flex flex-col overflow-hidden"
+      className="h-screen min-h-[680px] w-full bg-slate-50 flex flex-col overflow-hidden"
     >
-      {/* Tablet / Desktop Status & Window Bar */}
-      <div className="bg-slate-900 text-white px-5 py-1.5 flex items-center justify-between text-[11px] font-mono select-none shrink-0">
-        <div className="flex items-center gap-2.5">
-          <span className="font-semibold">09:41</span>
-          <span className="text-emerald-400 text-[10px]">
-            Tablet / Desktop · 16:10 Landscape (Left Nav)
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-slate-300 text-[10px]">
-          <span>FocusFlow OS</span>
-          <span aria-hidden="true">·</span>
-          <span className="text-emerald-400 font-semibold">
-            {stats.completionRate}% Daily Goal
-          </span>
-        </div>
-      </div>
-
       {/* Tablet Body: Left Navigation Bar + Scrollable Main Workspace */}
       <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
         {/* Left Navigation Bar for Tablet & Desktop Version */}
         <aside
           aria-label="Tablet and desktop left navigation bar"
           data-testid="tablet-left-nav"
-          className="w-52 sm:w-56 h-full shrink-0 bg-white border-r border-slate-200 p-3 flex flex-col justify-between overflow-y-auto"
+          className="w-56 sm:w-60 h-full shrink-0 bg-white border-r border-slate-200 p-3 flex flex-col justify-between overflow-y-auto"
         >
           <div className="space-y-3">
-            <div className="px-2 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700">
-                  Tablet / Desktop
+            {/* Workspace Header + View Switcher Icons Beside "Workspace" Text */}
+            <div className="px-1.5 py-1 flex items-center justify-between gap-1.5 border-b border-slate-100 pb-2.5">
+              <div className="min-w-0">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900 font-display block truncate">
+                  Workspace
                 </span>
-                <p className="text-[11px] text-slate-500">
-                  Left Navigation Bar
+                <p className="text-[10px] text-slate-500 font-medium truncate">
+                  FocusFlow OS
                 </p>
               </div>
-              <Tablet className="w-4 h-4 text-slate-400" aria-hidden="true" />
+
+              {/* View Switcher Icons Beside Workspace Text */}
+              <div
+                role="group"
+                aria-label="Change workspace view mode"
+                className="flex items-center gap-1 bg-slate-100 border border-slate-200 p-1 rounded-lg shrink-0"
+              >
+                <button
+                  type="button"
+                  onClick={() => setLayoutVersion('tablet')}
+                  data-testid="switch-version-tablet"
+                  aria-label="Tablet / Desktop Full Screen View"
+                  title="Tablet / Desktop Full Screen View"
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                    layoutVersion === 'tablet'
+                      ? 'bg-purple-700 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                  }`}
+                >
+                  <Tablet className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLayoutVersion('mobile')}
+                  data-testid="switch-version-mobile"
+                  aria-label="Android 9:16 Mobile View"
+                  title="Android 9:16 Mobile View"
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                    layoutVersion === 'mobile'
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                  }`}
+                >
+                  <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLayoutVersion('split')}
+                  data-testid="switch-version-split"
+                  aria-label="Both Versions Side-by-Side View"
+                  title="Both Versions Side-by-Side View"
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                    layoutVersion === 'split'
+                      ? 'bg-emerald-600 text-white shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white'
+                  }`}
+                >
+                  <Columns2 className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+
+                <button
+                  type="button"
+                  data-testid="open-calendar-tearoff-mockup-btn"
+                  onClick={() => {
+                    setInitialLastOpenedDateIso(offsetIsoDate(todayIso, -3));
+                    setIsCalendarTearModalOpen(true);
+                  }}
+                  aria-label="Open Calendar Tear-Off Mockup"
+                  title="Open Calendar Tear-Off Animation Mockup"
+                  className="p-1.5 rounded-md text-purple-700 hover:bg-purple-100 transition-colors cursor-pointer"
+                >
+                  <CalendarIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
-            {/* Left Navigation Links */}
+            {/* Left Navigation Links (Semantic Color Grouping: Green=Action/Habits, Blue=Schedule/Structure, Purple=Vision/Reflection) */}
             <nav aria-label="Left workspace navigation" className="space-y-0.5">
               {leftRailNavItems.map((item) => {
                 const isActive = activeView === item.id;
+                const activeSolidBg =
+                  item.id === 'tasks' ||
+                  item.id === 'habits' ||
+                  item.id === 'timer' ||
+                  item.id === 'bingo'
+                    ? 'bg-emerald-600 text-white'
+                    : item.id === 'backlog' ||
+                        item.id === 'calendar' ||
+                        item.id === 'plan' ||
+                        item.id === 'matrix' ||
+                        item.id === 'network'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-purple-700 text-white';
                 return (
                   <button
                     key={item.id}
                     type="button"
+                    data-testid={`nav-tab-${item.id}`}
                     onClick={() => setActiveView(item.id)}
                     aria-current={isActive ? 'page' : undefined}
-                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer ${
+                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer whitespace-nowrap ${
                       isActive
-                        ? 'bg-slate-900 text-white'
-                        : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                        ? `${activeSolidBg} shadow-2xs`
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
                     <span className="flex items-center gap-2 truncate">
@@ -895,8 +1106,8 @@ export default function App() {
                       <span
                         className={`font-mono tabular-nums text-[10px] px-1.5 py-0.5 rounded-md ${
                           isActive
-                            ? 'bg-white/15 text-white'
-                            : 'bg-slate-100 text-slate-600'
+                            ? 'bg-white/20 text-white font-bold'
+                            : 'bg-slate-100 text-slate-700'
                         }`}
                       >
                         {item.badge}
@@ -908,8 +1119,8 @@ export default function App() {
             </nav>
 
             {/* 7 Life Areas Quick Filter in Left Rail */}
-            <div className="pt-2 border-t border-slate-100 space-y-1">
-              <div className="px-2 text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+            <div className="pt-2 border-t border-slate-200 space-y-1">
+              <div className="px-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
                 7 Life Focus Areas
               </div>
               <div className="space-y-0.5">
@@ -924,15 +1135,17 @@ export default function App() {
                         setCategoryFilter(area);
                         setActiveView('tasks');
                       }}
-                      className={`w-full text-left px-2.5 py-1 rounded-lg text-xs transition-colors flex items-center justify-between cursor-pointer ${
+                      className={`w-full text-left px-2.5 py-1 rounded-lg text-xs transition-colors flex items-center justify-between cursor-pointer whitespace-nowrap ${
                         isSelected
-                          ? 'bg-emerald-50 text-emerald-900 font-semibold'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          ? 'bg-blue-50 text-blue-900 font-semibold border border-blue-200'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                       }`}
                     >
                       <span>{area === 'All' ? 'All Areas' : area}</span>
                       {isSelected && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                        <span className="text-[10px] font-mono text-blue-700">
+                          Active
+                        </span>
                       )}
                     </button>
                   );
@@ -942,9 +1155,9 @@ export default function App() {
           </div>
 
           {/* Daily Progress Summary inside Left Rail */}
-          <div className="pt-2.5 mt-2 border-t border-slate-100 space-y-2 px-1">
+          <div className="pt-2.5 mt-2 border-t border-slate-200 space-y-2 px-1">
             <div className="flex items-baseline justify-between">
-              <span className="text-xs font-semibold text-slate-700">
+              <span className="text-xs font-semibold text-slate-800">
                 Daily Progress
               </span>
               <span className="text-xs font-mono tabular-nums font-bold text-emerald-700">
@@ -967,28 +1180,28 @@ export default function App() {
             </div>
             <dl className="grid grid-cols-3 gap-1 pt-0.5 text-center">
               <div>
-                <dt className="text-[10px] text-slate-400">Active</dt>
+                <dt className="text-[10px] text-slate-500">Active</dt>
                 <dd
                   data-testid="stat-active"
-                  className="text-xs font-bold font-mono text-slate-900"
+                  className="text-xs font-bold font-mono tabular-nums text-blue-700"
                 >
                   {stats.active}
                 </dd>
               </div>
               <div>
-                <dt className="text-[10px] text-slate-400">Done</dt>
+                <dt className="text-[10px] text-slate-500">Done</dt>
                 <dd
                   data-testid="stat-completed"
-                  className="text-xs font-bold font-mono text-emerald-700"
+                  className="text-xs font-bold font-mono tabular-nums text-emerald-700"
                 >
                   {stats.completed}
                 </dd>
               </div>
               <div>
-                <dt className="text-[10px] text-slate-400">High</dt>
+                <dt className="text-[10px] text-slate-500">High</dt>
                 <dd
                   data-testid="stat-high-priority"
-                  className="text-xs font-bold font-mono text-red-600"
+                  className="text-xs font-bold font-mono tabular-nums text-purple-700"
                 >
                   {stats.highPriorityActive}
                 </dd>
@@ -998,7 +1211,7 @@ export default function App() {
             <button
               type="button"
               onClick={focusQuickAdd}
-              className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              className="w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Quick New Task</span>
@@ -1007,11 +1220,58 @@ export default function App() {
         </aside>
 
         {/* Scrollable Tablet / Desktop Main Canvas */}
-        <div className="flex-1 h-full overflow-y-auto p-5 @container">
+        <div className="flex-1 h-full overflow-y-auto p-4 sm:p-5 @container">
           <div className="grid grid-cols-1 @3xl:grid-cols-12 gap-5 items-start">
             {/* Main Active Workspace */}
-            <section className="@3xl:col-span-7 space-y-4 min-w-0">
-              {activeView === 'habits' ? (
+            <section
+              className={
+                activeView === 'plan'
+                  ? '@3xl:col-span-12 space-y-4 min-w-0'
+                  : '@3xl:col-span-7 space-y-4 min-w-0'
+              }
+            >
+              {activeView === 'plan' ? (
+                <ExcalidrawPlanDashboard
+                  todos={todos}
+                  topics={topics}
+                  onAddTodoFromCanvas={handleAddTodo}
+                />
+              ) : activeView === 'backlog' ? (
+                <BacklogDashboard
+                  todos={todos}
+                  brainDumpItems={brainDumpItems}
+                  onAddBacklogTodo={handleAddTodo}
+                  onToggleTodo={handleToggleTodo}
+                  onDeleteTodo={handleDeleteTodo}
+                  onUpdateTodo={handleUpdateTodo}
+                  onAssignScheduledHour={handleAssignScheduledHour}
+                  onPromoteBrainDumpItem={handleSwipeRight}
+                  onRestoreBrainDumpToDeck={handleRestoreToDeck}
+                  onDeleteBrainDumpItem={handleDeleteDumpItem}
+                  onDragStartTask={handleDragStartTask}
+                  onDragEndTask={handleDragEndTask}
+                />
+              ) : activeView === 'affirmations' ? (
+                <AffirmationDashboard />
+              ) : activeView === 'reflect' ? (
+                <ReflectDashboard
+                  todos={todos}
+                  onOpenEisenhowerMatrix={() => setActiveView('matrix')}
+                  onAddTaskFromReflection={(params) =>
+                    handleAddTodo({ ...params })
+                  }
+                />
+              ) : activeView === 'bingo' ? (
+                <BingoPunchCardDashboard
+                  todos={todos}
+                  onPunchTaskDay={handlePunchTaskDay}
+                  onDragStartTask={handleDragStartTask}
+                  onDragEndTask={handleDragEndTask}
+                  onQuickScheduleTask={(todoId, hour) =>
+                    handleAssignScheduledHour(todoId, hour, todayIso)
+                  }
+                />
+              ) : activeView === 'habits' ? (
                 <HabitDashboard
                   habits={habits}
                   onToggleHabitDate={handleToggleHabitDate}
@@ -1026,6 +1286,8 @@ export default function App() {
                   onAddTodoInQuadrant={(params) =>
                     handleAddTodo({ ...params, isRepeating: false })
                   }
+                  onDragStartTask={handleDragStartTask}
+                  onDragEndTask={handleDragEndTask}
                 />
               ) : activeView === 'network' ? (
                 <RelationshipOrgDashboard
@@ -1109,28 +1371,28 @@ export default function App() {
                   onRestoreToDeck={handleRestoreToDeck}
                   onDeleteDumpItem={handleDeleteDumpItem}
                   onSwitchToTodoList={() => setActiveView('tasks')}
+                  onDragStartBrainDumpCard={handleDragStartTask}
+                  onDragEndBrainDumpCard={handleDragEndTask}
                 />
               ) : (
                 <>
                   {/* Page Header, View Switcher (List / Kanban / Timeline), and Right-Side Hourly Calendar Toggle */}
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
+                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-purple-950 font-display">
                         {categoryFilter === 'All'
                           ? 'All Life Areas'
                           : `${categoryFilter} Tasks`}
                       </h1>
                       <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                        {stats.active === 0
-                          ? 'All caught up! Add a new task below or swipe from your Brain Dump.'
-                          : `You have ${stats.active} active ${
-                              stats.active === 1 ? 'task' : 'tasks'
-                            } across your 7 core areas.`}
+                        Pull any task card using its drag handle (⋮⋮) into the{' '}
+                        <strong className="text-blue-700">Side Hourly Calendar</strong> on the right to
+                        schedule it, or punch tasks &gt;3 days for an{' '}
+                        <strong className="text-purple-700">Auto Punch Card</strong>.
                       </p>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {/* Toggle Right-Side Hourly Calendar vs Radar & Wheel */}
                       <button
                         type="button"
                         data-testid="toggle-right-hourly-calendar"
@@ -1143,8 +1405,8 @@ export default function App() {
                         }
                         className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                           taskRightPanelMode === 'hourly_calendar'
-                            ? 'bg-emerald-700 text-white border-emerald-700'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
+                            : 'bg-white text-purple-900 border-purple-200 hover:bg-purple-50'
                         }`}
                       >
                         <Clock className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1182,6 +1444,11 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Daily / Weekly / Monthly Check-In Questions Widget */}
+                  <CadenceReviewWidget
+                    onOpenEisenhowerMatrix={() => setActiveView('matrix')}
+                  />
+
                   {/* Quick Add Task Bar */}
                   <QuickAddTask
                     defaultCategory={
@@ -1200,7 +1467,6 @@ export default function App() {
                   {/* Task View Switcher (List View / Kanban View / Timeline View) + Status & Search Toolbar */}
                   <div className="bg-white border border-slate-200 rounded-xl p-2.5 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      {/* View Mode Switcher: List View, Kanban View, Timeline View */}
                       <div
                         role="group"
                         aria-label="Select task display view mode"
@@ -1346,6 +1612,12 @@ export default function App() {
                               onAddSubtask={handleAddSubtask}
                               onToggleSubtask={handleToggleSubtask}
                               onDeleteSubtask={handleDeleteSubtask}
+                              onPunchTaskDay={handlePunchTaskDay}
+                              onOpenBingoPunchCards={() =>
+                                setActiveView('bingo')
+                              }
+                              onDragStartTask={handleDragStartTask}
+                              onDragEndTask={handleDragEndTask}
                             />
                           ))}
                         </div>
@@ -1384,70 +1656,78 @@ export default function App() {
                       onToggleTodo={handleToggleTodo}
                       onDeleteTodo={handleDeleteTodo}
                       onMoveKanbanStage={handleMoveKanbanStage}
+                      onDragStartTask={handleDragStartTask}
+                      onDragEndTask={handleDragEndTask}
                     />
                   )}
                 </>
               )}
             </section>
 
-            {/* Right Column: Either Hourly Calendar View (making Wheel Picker & Radar Chart disappear) OR Radar Chart + Task Wheel Picker */}
-            <aside className="@3xl:col-span-5 space-y-4 items-start">
-              {/* Right Panel Mode Switcher Strip */}
-              <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-between gap-1">
-                <button
-                  type="button"
-                  onClick={() => setTaskRightPanelMode('insights')}
-                  className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                    taskRightPanelMode === 'insights'
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Radar & Wheel</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setTaskRightPanelMode('hourly_calendar')}
-                  className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
-                    taskRightPanelMode === 'hourly_calendar'
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Hourly Calendar</span>
-                </button>
-              </div>
-
-              {taskRightPanelMode === 'hourly_calendar' ? (
-                <HourlyCalendarPanel
-                  todos={todos}
-                  onToggleTodo={handleToggleTodo}
-                  onAssignScheduledHour={handleAssignScheduledHour}
-                  onAddTodoAtHour={handleAddTodo}
-                  onCloseHourlyView={() => setTaskRightPanelMode('insights')}
-                />
-              ) : (
-                <div className="grid grid-cols-1 @xl:grid-cols-2 @3xl:grid-cols-1 gap-5 items-start">
-                  <LifeRadarChart
-                    todos={todos}
-                    activeCategory={categoryFilter}
-                    baseOverrides={radarBaseOverrides}
-                    onSelectCategory={handleRadarSelectCategory}
-                    onAdjustBaseScore={handleAdjustBaseScore}
-                  />
-
-                  <TaskWheelPicker
-                    todos={todos}
-                    activeCategory={categoryFilter}
-                    selectedFocusTaskId={selectedFocusTaskId}
-                    onSelectFocusTask={setSelectedFocusTaskId}
-                    onCompleteTask={handleToggleTodo}
-                  />
+            {/* Right Column: Side Hourly Calendar (Default Open for Drag-and-Drop Card Scheduling) OR Radar Chart + Task Wheel Picker */}
+            {activeView !== 'plan' && (
+              <aside className="@3xl:col-span-5 space-y-4 items-start">
+                {/* Right Panel Mode Switcher Strip */}
+                <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-between gap-1 shadow-2xs">
+                  <button
+                    type="button"
+                    data-testid="right-panel-tab-hourly"
+                    onClick={() => setTaskRightPanelMode('hourly_calendar')}
+                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                      taskRightPanelMode === 'hourly_calendar'
+                        ? 'bg-blue-600 text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Side Hourly Calendar (Drop Cards Here)</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="right-panel-tab-insights"
+                    onClick={() => setTaskRightPanelMode('insights')}
+                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
+                      taskRightPanelMode === 'insights'
+                        ? 'bg-purple-700 text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Radar &amp; Wheel</span>
+                  </button>
                 </div>
-              )}
-            </aside>
+
+                {taskRightPanelMode === 'hourly_calendar' ? (
+                  <HourlyCalendarPanel
+                    todos={todos}
+                    activeDraggedTaskId={activeDraggedTaskId}
+                    onToggleTodo={handleToggleTodo}
+                    onAssignScheduledHour={handleAssignScheduledHour}
+                    onScheduleBrainDumpAtHour={handleScheduleBrainDumpAtHour}
+                    onAddTodoAtHour={handleAddTodo}
+                    onCloseHourlyView={() => setTaskRightPanelMode('insights')}
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 @xl:grid-cols-2 @3xl:grid-cols-1 gap-5 items-start">
+                    <LifeRadarChart
+                      todos={todos}
+                      activeCategory={categoryFilter}
+                      baseOverrides={radarBaseOverrides}
+                      onSelectCategory={handleRadarSelectCategory}
+                      onAdjustBaseScore={handleAdjustBaseScore}
+                    />
+
+                    <TaskWheelPicker
+                      todos={todos}
+                      activeCategory={categoryFilter}
+                      selectedFocusTaskId={selectedFocusTaskId}
+                      onSelectFocusTask={setSelectedFocusTaskId}
+                      onCompleteTask={handleToggleTodo}
+                    />
+                  </div>
+                )}
+              </aside>
+            )}
           </div>
         </div>
       </div>
@@ -1516,95 +1796,74 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       <ConfettiOverlay
         celebration={celebration}
         onDismiss={() => setCelebration(null)}
       />
 
-      {/* Top Bar Contract: 3 zones (Brand, Version Switcher, Primary Action) */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-slate-200 px-6 py-2.5 flex items-center justify-between gap-8">
-        <a
-          href="#top"
-          onClick={(e) => {
-            e.preventDefault();
-            setActiveView('tasks');
-            setCategoryFilter('All');
-            setStatusFilter('all');
-          }}
-          className="text-lg font-bold tracking-tight text-slate-900 font-display whitespace-nowrap shrink-0"
-        >
-          FocusFlow
-        </a>
+      {/* Daily Startup Desk Calendar Tear-Off Animation & Mockup Studio */}
+      <CalendarTearOffModal
+        isOpen={isCalendarTearModalOpen}
+        initialLastOpenedDateIso={initialLastOpenedDateIso}
+        todayIso={todayIso}
+        activeTaskCount={stats.active}
+        onClose={() => setIsCalendarTearModalOpen(false)}
+        onSimulateDaysMissed={(daysMissed) => {
+          setInitialLastOpenedDateIso(offsetIsoDate(todayIso, -daysMissed));
+        }}
+      />
 
-        {/* App Version Switcher: Tablet (Left Nav) vs Android 9:16 (Bottom Nav) vs Split Comparison */}
-        <div
-          role="group"
-          aria-label="Select application layout version"
-          className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl"
-        >
-          <button
-            type="button"
-            onClick={() => setLayoutVersion('tablet')}
-            data-testid="switch-version-tablet"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-              layoutVersion === 'tablet'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Tablet className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Tablet / Desktop (Left Nav)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setLayoutVersion('mobile')}
-            data-testid="switch-version-mobile"
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-              layoutVersion === 'mobile'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Android 9:16 (Bottom Nav)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setLayoutVersion('split')}
-            data-testid="switch-version-split"
-            className={`hidden lg:flex px-3 py-1.5 rounded-lg text-xs font-semibold items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-              layoutVersion === 'split'
-                ? 'bg-slate-900 text-white shadow-2xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <Columns2 className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Both Versions (Side-by-Side)</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            onClick={focusQuickAdd}
-            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 rounded-lg hover:bg-slate-800 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-          >
-            New Task
-          </button>
-        </div>
-      </header>
-
-      {/* Main Workspace Container */}
-      <main className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-4 flex items-center justify-center">
+      {/* Main Workspace Container — Edge-to-Edge Borderless Canvas */}
+      <main className="flex-1 w-full min-h-screen flex items-stretch justify-center overflow-hidden">
         {layoutVersion === 'mobile' ? (
-          <div className="w-full flex items-center justify-center">
+          <div className="w-full flex flex-col items-center justify-center gap-2.5">
+            {/* Compact Workspace View Switcher when in Mobile-Only Mode */}
+            <div className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 flex items-center gap-3 shadow-2xs">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900 font-display">
+                Workspace
+              </span>
+              <div
+                role="group"
+                aria-label="Change workspace view mode"
+                className="flex items-center gap-1 bg-slate-100 border border-slate-200 p-1 rounded-lg"
+              >
+                <button
+                  type="button"
+                  onClick={() => setLayoutVersion('tablet')}
+                  data-testid="switch-version-tablet"
+                  aria-label="Switch to Tablet / Desktop View"
+                  title="Tablet / Desktop Full Screen View"
+                  className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-white transition-colors cursor-pointer"
+                >
+                  <Tablet className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutVersion('mobile')}
+                  data-testid="switch-version-mobile"
+                  aria-label="Android 9:16 Mobile View"
+                  title="Android 9:16 Mobile View"
+                  className="p-1.5 rounded-md bg-blue-600 text-white shadow-2xs transition-colors cursor-pointer"
+                >
+                  <Smartphone className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutVersion('split')}
+                  data-testid="switch-version-split"
+                  aria-label="Switch to Side-by-Side View"
+                  title="Both Versions Side-by-Side View"
+                  className="p-1.5 rounded-md text-slate-600 hover:text-slate-900 hover:bg-white transition-colors cursor-pointer"
+                >
+                  <Columns2 className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
             {renderAndroidMobileVersion()}
           </div>
         ) : layoutVersion === 'split' ? (
-          <div className="w-full flex flex-col xl:flex-row gap-6 items-center xl:items-stretch justify-center">
+          <div className="w-full flex flex-col xl:flex-row gap-4 items-center xl:items-stretch justify-center">
             <div className="flex-1 min-w-0 w-full">
               {renderTabletDesktopVersion()}
             </div>
@@ -1613,23 +1872,9 @@ export default function App() {
             </div>
           </div>
         ) : (
-          <div className="w-full max-w-[1320px] mx-auto">
-            {renderTabletDesktopVersion()}
-          </div>
+          <div className="w-full h-screen">{renderTabletDesktopVersion()}</div>
         )}
       </main>
-
-      {/* Quiet Footer */}
-      <footer className="mt-auto border-t border-slate-200 bg-white py-4 px-6">
-        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-          <span>
-            FocusFlow — Tablet/Desktop (Left Nav) & Android 9:16 (Bottom Nav)
-          </span>
-          <span className="font-mono tabular-nums">
-            {stats.completed} of {stats.total} tasks completed
-          </span>
-        </div>
-      </footer>
     </div>
   );
 }

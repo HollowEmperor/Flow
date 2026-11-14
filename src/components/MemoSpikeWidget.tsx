@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
   Zap,
   Pin,
@@ -44,6 +43,7 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
       : null
   );
   const [spikePulseKey, setSpikePulseKey] = useState<number>(0);
+  const [isCompressingStack, setIsCompressingStack] = useState(false);
 
   // Keep targetActiveId synced with available active tasks
   useEffect(() => {
@@ -84,9 +84,31 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
     const idToSpike = targetActiveId || activeCandidates[0]?.id;
     if (!idToSpike) return;
     setSpikePulseKey((prev) => prev + 1);
+    setIsCompressingStack(true);
+    window.setTimeout(() => {
+      setIsCompressingStack(false);
+    }, 360);
     onSpikeTask(idToSpike);
     setSelectedSlipId(idToSpike);
   };
+
+  // In each 44px-tall side-view CSS 3D paper button, the center puncture hole is locked at +22px above bottomOffsetPx.
+  const topSlip =
+    spikeStats.slips.length > 0
+      ? spikeStats.slips[spikeStats.slips.length - 1]
+      : null;
+  const topPunctureBottomPx = topSlip ? topSlip.bottomOffsetPx + 22 : 34;
+
+  // Build 12 deterministic CSS pulse bar heights from waveform coordinates
+  const pulseBars = useMemo(() => {
+    const pairs = spikeStats.waveformPoints.split(' ').filter(Boolean);
+    return pairs.map((pair, idx) => {
+      const parts = pair.split(',');
+      const y = Number(parts[1] ?? 24);
+      const heightPct = Math.max(20, Math.min(100, Math.round(((44 - y) / 36) * 100)));
+      return { id: idx, heightPct };
+    });
+  }, [spikeStats.waveformPoints]);
 
   return (
     <section
@@ -94,12 +116,12 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
       data-testid="memospike-panel"
       className="bg-white border border-slate-200 rounded-xl p-4 space-y-3.5"
     >
-      {/* Header & Live Momentum Spike Waveform */}
+      {/* Header & Live Momentum Spike Metrics */}
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-1.5">
             <Pin
-              className="w-4 h-4 text-amber-600 shrink-0"
+              className="w-4 h-4 text-purple-600 shrink-0"
               aria-hidden="true"
             />
             <h2 className="text-base font-bold tracking-tight text-slate-900 font-display">
@@ -107,8 +129,9 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
             </h2>
           </div>
           <p className="text-xs text-slate-600 mt-0.5">
-            Impale completed tasks onto the desk spike and watch your momentum
-            waveform surge.
+            Pure CSS 3D side-elevation desk spindle—watch completed paper memos
+            pierce the needle tip, slide down the steel rod, and stack in
+            profile.
           </p>
         </div>
 
@@ -131,208 +154,303 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
         </div>
       </div>
 
-      {/* Live MemoSpike Waveform Strip */}
-      <div className="bg-slate-900 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3">
+      {/* Live MemoSpike Pure CSS Momentum Waveform Strip */}
+      <div className="bg-slate-900 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-3 border border-slate-800">
         <div className="space-y-0.5 shrink-0">
-          <div className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-semibold flex items-center gap-1">
+          <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1">
             <Zap className="w-3 h-3" aria-hidden="true" />
-            <span>MemoSpike Pulse</span>
+            <span>Side-Profile Stack Height</span>
           </div>
           <div className="text-xs font-mono tabular-nums text-white font-bold">
-            {spikeStats.spikedCount} memos impaled
+            {spikeStats.spikedCount} sheets · {spikeStats.stackHeightMm}mm pile
           </div>
         </div>
 
-        <svg
+        {/* Pure CSS Keyframe Waveform Bar Strip */}
+        <div
           key={spikePulseKey}
           data-testid="memospike-waveform"
-          viewBox="0 0 240 48"
-          className="w-40 sm:w-48 h-10 overflow-visible shrink-0"
           role="img"
           aria-label="MemoSpike momentum pulse waveform"
+          className="css-waveform-strip w-40 sm:w-48 h-9 flex items-end justify-between gap-1.5 px-1 py-1 relative border-b border-dashed border-slate-700 shrink-0"
         >
-          <line
-            x1="0"
-            y1="36"
-            x2="240"
-            y2="36"
-            stroke="#334155"
-            strokeDasharray="2 2"
-            strokeWidth="1"
-          />
-          <motion.polyline
-            fill="none"
-            stroke="#F59E0B"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            points={spikeStats.waveformPoints}
-            initial={{ pathLength: 0.3, opacity: 0.5 }}
-            animate={{ pathLength: 1, opacity: 1 }}
-            transition={{ duration: 0.35 }}
-          />
-        </svg>
+          {pulseBars.map((bar, idx) => {
+            const isRecent = idx >= pulseBars.length - 3;
+            return (
+              <span
+                key={bar.id}
+                style={{ height: `${bar.heightPct}%` }}
+                className={`flex-1 rounded-t-xs transition-all duration-300 ${
+                  isRecent
+                    ? 'bg-emerald-400'
+                    : idx % 2 === 0
+                      ? 'bg-blue-500'
+                      : 'bg-purple-500'
+                }`}
+              />
+            );
+          })}
+        </div>
       </div>
 
-      {/* Interactive Desk Spindle Stage + Spiked Slip Inspector */}
+      {/* Side-View Desk Spindle Stage + 3D Tear-Off Memo Block Inspector */}
       <div className="grid grid-cols-1 @sm:grid-cols-12 gap-3 items-stretch">
-        {/* Left: Animated Vertical Metal Spindle with Impaled Paper Slips */}
+        {/* Left: True Side-Elevation Desk Spindle & Layered Horizontal CSS 3D Paper Stack */}
         <div
           data-testid="memospike-spindle-stage"
-          className="@sm:col-span-6 bg-slate-900 rounded-xl p-3.5 flex flex-col items-center justify-end relative overflow-hidden min-h-[230px]"
+          className="@sm:col-span-7 bg-slate-900 rounded-xl p-3.5 flex flex-col items-center justify-end relative overflow-hidden min-h-[276px] border border-slate-800"
         >
-          {/* Top Label */}
-          <div className="absolute top-2.5 left-3 right-3 flex items-center justify-between text-[10px] font-mono tabular-nums text-slate-400">
-            <span>DESK SPINDLE</span>
-            <span>{spikeStats.spikedCount} SLIPS</span>
+          {/* Top Technical Side-Elevation Header */}
+          <div className="absolute top-2.5 left-3 right-3 flex items-center justify-between text-[10px] font-mono tabular-nums text-slate-400 z-20">
+            <span>SIDE VIEW · 15° CSS 3D</span>
+            <span>
+              {spikeStats.spikedCount} SHEETS ({spikeStats.stackHeightMm}MM)
+            </span>
           </div>
 
-          {/* Kinetic Impact Ring when a new slip is spiked */}
-          <AnimatePresence>
-            {spikePulseKey > 0 && (
-              <motion.div
-                key={`ring-${spikePulseKey}`}
-                initial={{ opacity: 0.9, scale: 0.4 }}
-                animate={{ opacity: 0, scale: 2.1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5 }}
-                className="w-12 h-4 rounded-full border-2 border-amber-400 absolute top-10 pointer-events-none z-30"
-              />
-            )}
-          </AnimatePresence>
+          {/* Left-Side Vertical Millimeter Elevation Gauge */}
+          <div
+            aria-hidden="true"
+            className="absolute left-2.5 bottom-9 top-9 w-7 flex flex-col justify-between text-[8px] font-mono tabular-nums text-slate-500 pointer-events-none z-10"
+          >
+            <div className="flex items-center gap-1">
+              <span className="w-2 h-[1px] bg-slate-600" />
+              <span>TIP</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-[1px] bg-slate-700" />
+              <span>75m</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-[1px] bg-slate-700" />
+              <span>50m</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-[1px] bg-slate-700" />
+              <span>25m</span>
+            </div>
+            <div className="flex items-center gap-1 text-emerald-400">
+              <span className="w-2 h-[1px] bg-emerald-400" />
+              <span>BASE</span>
+            </div>
+          </div>
 
-          {/* The Vertical Metal Spike Rod & Sharp Tip */}
-          <div className="relative w-40 h-44 flex flex-col items-center justify-end select-none">
-            {/* Sharp Metal Needle Tip */}
+          {/* Desk Surface Horizon at the Bottom of the Side View */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 bottom-0 h-8 bg-slate-950 border-t border-slate-800 pointer-events-none z-0"
+          />
+
+          {/* Pure CSS Elliptical Puncture Shockwave Ring when a new paper is impaled */}
+          {spikePulseKey > 0 && (
+            <div
+              key={`ring-${spikePulseKey}`}
+              style={{ bottom: `${topPunctureBottomPx + 6}px` }}
+              className="css-spike-shockwave w-16 h-4 rounded-full border-2 border-emerald-400 absolute left-1/2 pointer-events-none z-50"
+            />
+          )}
+
+          {/* Main Side-Elevation Spindle & Pure CSS 3D Paper Stack Assembly */}
+          <div className="relative w-full max-w-[232px] h-58 flex flex-col items-center justify-end select-none">
+            {/* 1. Lower Brushed Steel Spindle Rod (from Collar up into bottom sheet) */}
             <div
               aria-hidden="true"
-              className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[14px] border-b-slate-300 z-20"
-            />
-            {/* Vertical Brushed Steel Spindle Rod */}
-            <div
-              aria-hidden="true"
-              className="w-1.5 flex-1 bg-gradient-to-r from-slate-400 via-slate-100 to-slate-500 shadow-xs z-10"
+              style={{
+                height: `${Math.max(16, topPunctureBottomPx - 26)}px`,
+              }}
+              className="absolute bottom-7 left-1/2 -translate-x-1/2 w-[6px] bg-slate-300 border-x border-slate-500 z-10 pointer-events-none"
             />
 
-            {/* Stacked Impaled Paper Task Slips on the Spindle */}
-            <div className="absolute inset-x-0 bottom-4 top-2 pointer-events-none">
-              <AnimatePresence>
-                {spikeStats.slips.map((slip) => {
-                  const isSelected = selectedSlip?.todoId === slip.todoId;
-                  return (
-                    <motion.button
-                      key={slip.id}
-                      type="button"
-                      data-testid={`spiked-slip-${slip.todoId}`}
-                      onClick={() => setSelectedSlipId(slip.todoId)}
-                      initial={{
-                        opacity: 0,
-                        y: -115,
-                        scale: 0.78,
-                        rotate: slip.rotationDeg - 18,
-                      }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        scale: isSelected ? 1.06 : 1,
-                        rotate: slip.rotationDeg,
-                      }}
-                      exit={{
-                        opacity: 0,
-                        y: -60,
-                        scale: 0.6,
-                      }}
-                      transition={{
-                        type: 'spring',
-                        stiffness: 290,
-                        damping: 20,
-                      }}
-                      style={{
+            {/* 2. Horizontally Stacked Side-Profile Paper Memo Sheets (Pure CSS 3D Perspective Planes) */}
+            <div
+              className={`css-memospike-stack ${
+                isCompressingStack ? 'is-compressing' : ''
+              } absolute inset-x-0 bottom-0 top-0 pointer-events-none`}
+            >
+              {spikeStats.slips.map((slip, idx) => {
+                const isSelected = selectedSlip?.todoId === slip.todoId;
+                const isTopSheet = idx === spikeStats.slips.length - 1;
+                const shortTitle =
+                  slip.title.length > 14
+                    ? `${slip.title.slice(0, 13)}…`
+                    : slip.title;
+
+                return (
+                  <button
+                    key={slip.id}
+                    type="button"
+                    data-testid={`spiked-slip-${slip.todoId}`}
+                    onClick={() => setSelectedSlipId(slip.todoId)}
+                    style={
+                      {
                         bottom: `${slip.bottomOffsetPx}px`,
-                        backgroundColor: slip.paperBgHex,
-                        borderColor: isSelected ? '#FFFFFF' : slip.paperBorderHex,
-                        zIndex: isSelected ? 40 : 15 + slip.stackIndex,
-                      }}
-                      aria-label={`Inspect spiked task memo: ${slip.title}`}
-                      title={`Spiked: ${slip.title}`}
-                      className={`pointer-events-auto absolute left-1/2 -translate-x-1/2 w-34 px-2.5 py-1 rounded-md border-2 shadow-sm text-left flex items-center justify-between gap-1.5 cursor-pointer transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300 ${
-                        isSelected ? 'ring-2 ring-amber-400 shadow-md' : ''
-                      }`}
+                        zIndex: 20 + slip.stackIndex,
+                        '--slip-skew-deg': `${slip.perspectiveSkewPx * 0.85}deg`,
+                        '--slip-tilt-deg': `${slip.sideTiltPx * 0.9}deg`,
+                        '--slip-bg': slip.paperBgHex,
+                        '--slip-border': slip.paperBorderHex,
+                        '--slip-rule': slip.ruleLineHex,
+                        '--slip-scale-x': isSelected ? 1.03 : 1,
+                      } as React.CSSProperties
+                    }
+                    aria-label={`Inspect spiked task memo: ${slip.title}`}
+                    title={`Paper Memo #${slip.stackIndex + 1} (${slip.category}): ${slip.title}`}
+                    className={`css-side-paper-btn ${
+                      isSelected ? 'is-selected' : ''
+                    } pointer-events-auto absolute left-1/2 w-[212px] h-[44px] cursor-pointer group focus:outline-none`}
+                  >
+                    {/* Pure CSS 3D Foreshortened Horizontal Paper Sheet Plane */}
+                    <span
+                      aria-hidden="true"
+                      className="css-side-paper-surface absolute inset-x-2 top-2.5 h-[24px] rounded-[3px] flex items-center justify-between px-2.5 overflow-hidden"
                     >
-                      <span className="text-[10px] font-bold text-slate-900 truncate flex-1">
-                        {slip.title}
-                      </span>
-                      {/* Center Spindle Puncture Hole */}
+                      {/* Left Margin Line */}
+                      <span className=" -ml-0.5 mr-1 w-[1.5px] h-full bg-purple-500/60 shrink-0" />
+
+                      {/* Left Wing Category Stamp */}
                       <span
-                        aria-hidden="true"
-                        className="w-2 h-2 rounded-full bg-slate-800 border border-slate-400 shrink-0"
+                        style={{ color: slip.stampColorHex }}
+                        className="text-[8px] font-bold font-mono tracking-tight truncate max-w-[74px] text-left"
+                      >
+                        #{String(slip.stackIndex + 1).padStart(2, '0')}{' '}
+                        {slip.category.toUpperCase()}
+                      </span>
+
+                      {/* Center Spacer for Spindle Puncture */}
+                      <span className="w-5 shrink-0" />
+
+                      {/* Right Wing Task Title */}
+                      <span className="text-[8.5px] font-bold text-slate-900 font-display truncate max-w-[78px] text-right">
+                        {shortTitle}
+                      </span>
+
+                      {/* Folded Right Dog-Ear Corner (Pure CSS Border Triangle) */}
+                      <span
+                        style={{
+                          borderTopColor: '#0f172a',
+                          borderLeftColor: slip.ruleLineHex,
+                        }}
+                        className="absolute top-0 right-0 w-0 h-0 border-t-[6px] border-l-[6px]"
                       />
-                    </motion.button>
-                  );
-                })}
-              </AnimatePresence>
+                    </span>
+
+                    {/* Center Spindle Puncture Hole + Upturned Torn Paper Burr + Inter-Sheet Steel Rod Segment */}
+                    <span
+                      aria-hidden="true"
+                      className="absolute left-1/2 top-[22px] -translate-x-1/2 -translate-y-1/2 w-4 h-2 flex items-center justify-center pointer-events-none"
+                    >
+                      {/* Foreshortened Dark Oval Puncture Hole */}
+                      <span className="w-3.5 h-1.5 rounded-full bg-slate-900 border border-slate-500 shadow-inner" />
+
+                      {/* Upturned Jagged Paper Collar Pushed Upward by the Spike (clip-path polygon) */}
+                      <span
+                        style={{
+                          backgroundColor: slip.paperBgHex,
+                          borderColor: slip.paperBorderHex,
+                        }}
+                        className="css-paper-puncture-collar absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-1.5 border-t"
+                      />
+
+                      {/* Inter-Sheet Cylindrical Steel Spindle Segment Emerging Out of This Sheet's Center Hole */}
+                      {!isTopSheet && (
+                        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-[6px] h-[20px] bg-slate-200 border-x border-slate-500" />
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Weighted Brass & Walnut Desk Base */}
+            {/* 3. Upper Exposed Brushed Steel Needle Shaft + Sharp Conical Point Emerging from Top Sheet's Puncture Hole */}
             <div
               aria-hidden="true"
-              className="w-28 h-3 bg-amber-500 border-2 border-amber-700 rounded-t-full z-20"
-            />
+              style={{
+                bottom: `${topPunctureBottomPx}px`,
+              }}
+              className="absolute left-1/2 -translate-x-1/2 top-3 flex flex-col items-center justify-start pointer-events-none z-50"
+            >
+              {/* Razor-Sharp Tapered Steel Needle Tip (Pure CSS clip-path cone) */}
+              <div className="css-needle-cone-tip w-2.5 h-5 shrink-0 bg-slate-200" />
+              {/* Cylindrical Brushed Steel Upper Shaft */}
+              <div className="w-[6px] flex-1 bg-slate-300 border-x border-slate-500" />
+              {/* Subtle Raised Paper Collar Ring at the Top Puncture Exit */}
+              {spikeStats.spikedCount > 0 && (
+                <div className="w-3.5 h-1.5 -mt-0.5 rounded-full bg-purple-100 border border-slate-500 shadow-2xs" />
+              )}
+            </div>
+
+            {/* 4. Side-Profile Tri-Color Spindle Base (Solid Flat Green, Blue, Purple Cylinders) */}
             <div
               aria-hidden="true"
-              className="w-36 h-3.5 bg-amber-800 border-2 border-amber-950 rounded-md shadow-md z-20"
-            />
+              className="w-[216px] h-[44px] relative z-15 pointer-events-none shrink-0 flex flex-col items-center justify-end pb-1"
+            >
+              {/* Central Solid Emerald Chuck / Collar */}
+              <div className="w-7 h-2.5 -mb-1 rounded-t-sm bg-emerald-500 border border-emerald-700 z-30 shadow-2xs" />
+              {/* Stepped Solid Royal Blue Dome */}
+              <div className="w-24 h-3 -mb-1 rounded-t-full bg-blue-600 border border-blue-800 z-20 shadow-xs" />
+              {/* Turned Solid Deep Purple Plinth */}
+              <div className="w-38 h-4 rounded-full bg-purple-800 border border-purple-600 z-10 shadow-md" />
+            </div>
           </div>
         </div>
 
-        {/* Right: Spiked Slip Inspector + "Spike Next Task" Action Control */}
-        <div className="@sm:col-span-6 flex flex-col justify-between gap-2.5">
+        {/* Right: 3D Tear-Off Memo Block Inspector + "Spike Task onto Spindle" Control */}
+        <div className="@sm:col-span-5 flex flex-col justify-between gap-2.5">
           {selectedSlip ? (
-            <div
-              data-testid="memospike-selected-card"
-              className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 space-y-2 flex-1 flex flex-col justify-between"
-            >
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-1.5 text-[11px] text-slate-600">
-                  <span className="font-semibold text-amber-900">
-                    {selectedSlip.category}
-                  </span>
-                  <span className="font-mono tabular-nums">
-                    Slip #{selectedSlip.stackIndex + 1} of{' '}
-                    {spikeStats.spikedCount}
-                  </span>
-                </div>
-
-                <h3
-                  data-testid="memospike-selected-title"
-                  className="text-xs font-bold text-slate-900 leading-snug"
-                >
-                  {selectedSlip.title}
-                </h3>
-
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 font-mono tabular-nums">
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="w-3 h-3" aria-hidden="true" />
-                    {selectedSlip.dueDate}
-                  </span>
-                  {selectedSlip.streakCount > 0 && (
-                    <span className="inline-flex items-center gap-0.5 text-amber-800 font-semibold">
-                      <Flame className="w-3 h-3" aria-hidden="true" />
-                      {selectedSlip.streakCount}d
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <button
-                type="button"
-                data-testid="unspike-selected-task-btn"
-                onClick={() => onSpikeTask(selectedSlip.todoId)}
-                className="w-full py-1.5 px-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            <div className="flex-1 flex flex-col justify-center pl-2.5 pr-1 py-1">
+              <div
+                data-testid="memospike-selected-card"
+                style={{
+                  backgroundColor: '#F5F3FF',
+                  borderColor: '#C4B5FD',
+                }}
+                className="css-3d-memo-block border rounded-lg p-3.5 flex-1 flex flex-col justify-between text-slate-900"
               >
-                <RotateCcw className="w-3 h-3" aria-hidden="true" />
-                <span>Unspike to Active List</span>
-              </button>
+                <div className="text-center space-y-1">
+                  {/* Top Tear-Off Calendar/Memo Header */}
+                  <div className="flex items-center justify-between text-[10px] font-bold tracking-[0.18em] uppercase text-slate-700 font-display border-b border-stone-300/80 pb-1">
+                    <span>{selectedSlip.category}</span>
+                    <span className="font-mono tracking-normal text-stone-600">
+                      {selectedSlip.stackIndex + 1}/{spikeStats.spikedCount}
+                    </span>
+                  </div>
+
+                  {/* Bold 2-Digit Sheet Number (Tear-Off Desk Block Style) */}
+                  <div className="text-3xl font-extrabold tracking-tight text-slate-950 font-display leading-none py-1">
+                    {String(selectedSlip.stackIndex + 1).padStart(2, '0')}
+                  </div>
+
+                  {/* Day / Due Date Subheader */}
+                  <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-stone-700 flex items-center justify-center gap-1.5 font-mono">
+                    <Calendar className="w-3 h-3" aria-hidden="true" />
+                    <span>{selectedSlip.dueDate}</span>
+                    {selectedSlip.streakCount > 0 && (
+                      <span className="inline-flex items-center gap-0.5 text-amber-800">
+                        · <Flame className="w-3 h-3" aria-hidden="true" />
+                        {selectedSlip.streakCount}d
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Selected Spiked Task Title */}
+                  <h3
+                    data-testid="memospike-selected-title"
+                    className="text-xs font-bold text-slate-900 leading-snug pt-0.5 line-clamp-2"
+                  >
+                    {selectedSlip.title}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  data-testid="unspike-selected-task-btn"
+                  onClick={() => onSpikeTask(selectedSlip.todoId)}
+                  className="mt-2 w-full py-1.5 px-2.5 bg-white/85 hover:bg-white text-slate-900 border border-stone-400/80 rounded-md text-[11px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" aria-hidden="true" />
+                  <span>Pull Memo Off Spindle</span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-4 text-center flex-1 flex flex-col items-center justify-center space-y-1">
@@ -341,11 +459,11 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
                 aria-hidden="true"
               />
               <p className="text-xs font-semibold text-slate-800">
-                No tasks spiked yet
+                No paper memos spiked yet
               </p>
               <p className="text-[11px] text-slate-500">
-                Spike an active task below to impale its memo slip onto the
-                spindle.
+                Spike an active task below to impale its paper memo sheet onto
+                the spindle.
               </p>
             </div>
           )}
@@ -356,7 +474,7 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
               htmlFor="memospike-task-select"
               className="block text-[11px] font-semibold text-slate-700"
             >
-              Select Active Task to Spike:
+              Select Active Task Memo to Spike:
             </label>
             <select
               id="memospike-task-select"
@@ -367,7 +485,7 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
               className="w-full text-xs bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-800 font-medium disabled:opacity-50"
             >
               {activeCandidates.length === 0 ? (
-                <option value="">All tasks spiked!</option>
+                <option value="">All task memos spiked!</option>
               ) : (
                 activeCandidates.map((t) => (
                   <option key={t.id} value={t.id}>
@@ -382,10 +500,10 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
               data-testid="spike-active-task-btn"
               onClick={handleTriggerSpike}
               disabled={activeCandidates.length === 0}
-              className="w-full py-2 px-3 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
+              className="w-full py-2 px-3 bg-purple-700 hover:bg-purple-800 disabled:opacity-40 text-white text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap"
             >
               <Zap className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Spike Task onto Spindle</span>
+              <span>Spike Paper Memo onto Spindle</span>
             </button>
           </div>
         </div>

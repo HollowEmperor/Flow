@@ -61,11 +61,11 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
     <section
       aria-label="Life Balance Radar Chart"
       data-testid="life-radar-chart"
-      className="bg-white border border-slate-200 rounded-xl p-5"
+      className="bg-white border border-purple-200 rounded-xl p-5 shadow-2xs"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-slate-900">
+          <h2 className="text-sm font-bold text-purple-950">
             Life Focus Radar
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -76,7 +76,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           <span
             data-testid="radar-avg-score"
-            className="text-xs font-mono tabular-nums font-semibold text-emerald-700"
+            className="text-xs font-mono tabular-nums font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200"
           >
             Avg {averageScore}
           </span>
@@ -87,8 +87,8 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
             aria-label="Adjust baseline life area scores"
             className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
               showScoreTuner
-                ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                ? 'bg-purple-700 text-white border-purple-700'
+                : 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" aria-hidden="true" />
@@ -96,7 +96,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
         </div>
       </div>
 
-      {/* 7-Axis SVG Heptagon Radar Chart */}
+      {/* 7-Axis SVG Heptagon Radar Chart (Solid Flat Green, Blue & Purple) */}
       <div className="mt-2 flex justify-center">
         <svg
           viewBox="0 0 290 275"
@@ -109,8 +109,8 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
             <polygon
               key={lvl}
               points={getLevelPolygonPoints(lvl)}
-              fill={lvl === 1.0 ? '#f8fafc' : 'none'}
-              stroke="#e2e8f0"
+              fill={lvl === 1.0 ? '#f5f3ff' : 'none'}
+              stroke="#c4b5fd"
               strokeWidth={lvl === 1.0 ? '1.5' : '1'}
               strokeDasharray={lvl < 1.0 ? '2 2' : undefined}
             />
@@ -124,25 +124,29 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
               y1={cy}
               x2={v.axisX}
               y2={v.axisY}
-              stroke="#cbd5e1"
+              stroke="#93c5fd"
               strokeWidth="1"
             />
           ))}
 
-          {/* Data Polygon Fill & Stroke */}
+          {/* Solid Flat Data Polygon Fill & Stroke (No Gradient) */}
           <polygon
             data-testid="radar-data-polygon"
             points={pointsString}
-            fill="#aa3030"
-            stroke="#059669"
-            strokeWidth="2.25"
+            fill="#3B82F6"
+            fillOpacity="0.28"
+            stroke="#7C3AED"
+            strokeWidth="2.5"
             strokeLinejoin="round"
-            className="bg-[#aa3030]"
           />
 
           {/* Data Vertex Dots & Outer Axis Labels */}
-          {vertices.map((v) => {
+          {vertices.map((v, idx) => {
             const isSelected = activeCategory === v.area;
+            const dotColors = ['#10B981', '#2563EB', '#7C3AED'];
+            const dotFill = isSelected
+              ? '#2E1065'
+              : dotColors[idx % dotColors.length];
             return (
               <g
                 key={v.area}
@@ -154,8 +158,8 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                 <circle
                   cx={v.x}
                   cy={v.y}
-                  r={isSelected ? 5 : 3.75}
-                  fill={isSelected ? '#0f172a' : '#059669'}
+                  r={isSelected ? 5.25 : 4}
+                  fill={dotFill}
                   stroke="#ffffff"
                   strokeWidth="1.5"
                 />
@@ -164,7 +168,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                   y={v.labelY - 5}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  fill={isSelected ? '#0f172a' : '#334155'}
+                  fill={isSelected ? '#2E1065' : '#1E1B4B'}
                   fontSize="10"
                   fontWeight={isSelected ? '700' : '600'}
                 >
@@ -177,7 +181,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                   dominantBaseline="central"
                   fill="#059669"
                   fontSize="9"
-                  fontWeight="600"
+                  fontWeight="700"
                   fontFamily="JetBrains Mono, monospace"
                 >
                   {v.score}
@@ -189,14 +193,16 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
       </div>
 
       {/* Compact 7-Area Breakdown & Optional Baseline Score Tuner */}
-      <div className="mt-2 pt-3 border-t border-slate-100 space-y-1.5">
+      <div className="mt-2 pt-3 border-t border-purple-100 space-y-1.5">
         {metrics.map((m) => {
           const isSelected = activeCategory === m.area;
           return (
             <div
               key={m.area}
               className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                isSelected ? 'bg-slate-900 text-white' : 'hover:bg-slate-50 text-slate-700'
+                isSelected
+                  ? 'bg-purple-700 text-white'
+                  : 'hover:bg-purple-50 text-slate-700'
               }`}
             >
               <button
@@ -207,11 +213,15 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                 <span className="font-medium">{m.area}</span>
                 <span
                   className={`font-mono tabular-nums ${
-                    isSelected ? 'text-slate-300' : 'text-slate-500'
+                    isSelected ? 'text-blue-100' : 'text-slate-500'
                   }`}
                 >
                   {m.completedCount}/{m.totalCount} tasks ·{' '}
-                  <strong className={isSelected ? 'text-emerald-300' : 'text-slate-900'}>
+                  <strong
+                    className={
+                      isSelected ? 'text-emerald-200' : 'text-purple-900'
+                    }
+                  >
                     {m.score}
                   </strong>
                 </span>
@@ -225,8 +235,8 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                     aria-label={`Decrease ${m.area} baseline score`}
                     className={`p-1 rounded border cursor-pointer ${
                       isSelected
-                        ? 'border-slate-700 hover:bg-slate-800 text-white'
-                        : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+                        ? 'border-white/30 hover:bg-white/15 text-white'
+                        : 'border-purple-200 hover:bg-purple-100 text-purple-800'
                     }`}
                   >
                     <Minus className="w-3 h-3" aria-hidden="true" />
@@ -237,8 +247,8 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                     aria-label={`Increase ${m.area} baseline score`}
                     className={`p-1 rounded border cursor-pointer ${
                       isSelected
-                        ? 'border-slate-700 hover:bg-slate-800 text-white'
-                        : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+                        ? 'border-white/30 hover:bg-white/15 text-white'
+                        : 'border-purple-200 hover:bg-purple-100 text-purple-800'
                     }`}
                   >
                     <Plus className="w-3 h-3" aria-hidden="true" />

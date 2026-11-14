@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Users,
   Building2,
@@ -8,6 +8,7 @@ import {
   Calendar,
   ArrowUpRight,
   Sparkles,
+  HelpCircle,
 } from 'lucide-react';
 import {
   Category,
@@ -17,6 +18,7 @@ import {
   OrganizationCategory,
   OrganizationItem,
 } from '../utils/todoLogic';
+import { DAYS_OF_WEEK } from '../utils/promptQuestionsData';
 
 interface RelationshipOrgDashboardProps {
   contacts: RelationshipContact[];
@@ -61,6 +63,8 @@ const ORG_TYPES: OrganizationCategory[] = [
   'Volunteer',
 ];
 
+const CONTACT_DAY_OF_WEEK_STORAGE_KEY = 'focusflow_contact_day_of_week_v1';
+
 export const RelationshipOrgDashboard: React.FC<
   RelationshipOrgDashboardProps
 > = ({
@@ -86,6 +90,39 @@ export const RelationshipOrgDashboard: React.FC<
   const [contactCadence, setContactCadence] =
     useState<RelationshipCadence>('Weekly');
   const [contactNextAction, setContactNextAction] = useState('');
+  const [newContactDayOfWeek, setNewContactDayOfWeek] =
+    useState<string>('Friday');
+
+  // Connecting to people prompt: "At what day of the week did I contact this person?"
+  const [contactDayMap, setContactDayMap] = useState<Record<string, string>>(
+    () => {
+      try {
+        const saved = localStorage.getItem(CONTACT_DAY_OF_WEEK_STORAGE_KEY);
+        if (saved) {
+          return JSON.parse(saved) ?? {};
+        }
+      } catch {
+        // ignore
+      }
+      return {
+        'rel-1': 'Wednesday',
+        'rel-2': 'Friday',
+        'rel-3': 'Sunday',
+        'rel-4': 'Tuesday',
+      };
+    }
+  );
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        CONTACT_DAY_OF_WEEK_STORAGE_KEY,
+        JSON.stringify(contactDayMap)
+      );
+    } catch {
+      // ignore
+    }
+  }, [contactDayMap]);
 
   // Add Organization Form State
   const [orgName, setOrgName] = useState('');
@@ -125,7 +162,9 @@ export const RelationshipOrgDashboard: React.FC<
       organizationName: contactOrg || 'Personal Network',
       lifeArea: contactArea,
       cadence: contactCadence,
-      nextAction: contactNextAction || 'Schedule catch-up call',
+      nextAction: `${
+        contactNextAction || 'Schedule catch-up call'
+      } (Contacted on ${newContactDayOfWeek})`,
     });
     setContactName('');
     setContactRole('');
@@ -164,7 +203,7 @@ export const RelationshipOrgDashboard: React.FC<
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-emerald-700" aria-hidden="true" />
               <h1 className="text-lg @sm:text-xl font-bold tracking-tight text-slate-900 font-display">
-                Relationship & Organization Dashboard
+                Relationship &amp; Organization Dashboard
               </h1>
             </div>
             <p className="text-xs text-slate-600 mt-0.5">
@@ -198,6 +237,28 @@ export const RelationshipOrgDashboard: React.FC<
               <span>Add Organization</span>
             </button>
           </div>
+        </div>
+
+        {/* Connecting to People Reflection Banner */}
+        <div
+          data-testid="connecting-to-people-prompt-banner"
+          className="bg-emerald-50/70 border border-emerald-200 rounded-xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2"
+        >
+          <div className="flex items-center gap-2">
+            <HelpCircle
+              className="w-4 h-4 text-emerald-700 shrink-0"
+              aria-hidden="true"
+            />
+            <span className="text-xs font-bold text-emerald-950">
+              Connecting to people prompt:{' '}
+              <span className="underline decoration-emerald-400">
+                &ldquo;At what day of the week did I contact this person?&rdquo;
+              </span>
+            </span>
+          </div>
+          <span className="text-[11px] font-mono text-emerald-800">
+            Select the exact weekday on each relationship card below
+          </span>
         </div>
 
         {/* Summary KPI Strip */}
@@ -355,6 +416,29 @@ export const RelationshipOrgDashboard: React.FC<
               </select>
             </div>
           </div>
+
+          {/* Prompt Question inside Add Person form */}
+          <div className="bg-emerald-50/60 border border-emerald-200 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2">
+            <label
+              htmlFor="new-contact-weekday"
+              className="text-xs font-bold text-emerald-950"
+            >
+              At what day of the week did I contact this person?
+            </label>
+            <select
+              id="new-contact-weekday"
+              value={newContactDayOfWeek}
+              onChange={(e) => setNewContactDayOfWeek(e.target.value)}
+              className="text-xs font-semibold bg-white border border-emerald-300 rounded-lg px-2.5 py-1 text-slate-800"
+            >
+              {DAYS_OF_WEEK.map((day) => (
+                <option key={day} value={day}>
+                  {day}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex items-center gap-2">
             <input
               type="text"
@@ -463,91 +547,139 @@ export const RelationshipOrgDashboard: React.FC<
         <section aria-label="Relationships directory" className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              People & Mentors ({filteredContacts.length})
+              People &amp; Mentors ({filteredContacts.length})
             </h2>
           </div>
 
           <div className="grid grid-cols-1 @xl:grid-cols-2 gap-3">
-            {filteredContacts.map((person) => (
-              <div
-                key={person.id}
-                data-testid={`relationship-card-${person.id}`}
-                className="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between gap-3"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-900">
-                        {person.name}
-                      </h3>
-                      <p className="text-xs text-slate-500">
-                        {person.role} ·{' '}
-                        <span className="font-medium text-slate-700">
-                          {person.organizationName}
+            {filteredContacts.map((person) => {
+              const contactedDay = contactDayMap[person.id] ?? 'Friday';
+
+              return (
+                <div
+                  key={person.id}
+                  data-testid={`relationship-card-${person.id}`}
+                  className="bg-white border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between gap-3"
+                >
+                  <div className="space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">
+                          {person.name}
+                        </h3>
+                        <p className="text-xs text-slate-500">
+                          {person.role} ·{' '}
+                          <span className="font-medium text-slate-700">
+                            {person.organizationName}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-semibold">
+                          {person.lifeArea}
                         </span>
-                      </p>
+                        <span
+                          title="Check-in streak"
+                          className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-mono font-bold flex items-center gap-1"
+                        >
+                          <Flame
+                            className="w-3 h-3 text-amber-600"
+                            aria-hidden="true"
+                          />
+                          {person.streakCount}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-semibold">
-                        {person.lifeArea}
+                    <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs text-slate-700">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block mb-0.5">
+                        Next Touchpoint ({person.cadence})
                       </span>
-                      <span
-                        title="Check-in streak"
-                        className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-mono font-bold flex items-center gap-1"
-                      >
-                        <Flame
-                          className="w-3 h-3 text-amber-600"
-                          aria-hidden="true"
-                        />
-                        {person.streakCount}
+                      {person.nextAction}
+                    </div>
+
+                    {/* Prompt Question: "At what day of the week did I contact this person?" */}
+                    <div
+                      data-testid={`contact-weekday-prompt-${person.id}`}
+                      className="bg-emerald-50/50 border border-emerald-200/80 rounded-lg p-2 space-y-1.5"
+                    >
+                      <span className="block text-[11px] font-bold text-emerald-950">
+                        At what day of the week did I contact this person?
                       </span>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {DAYS_OF_WEEK.map((day) => {
+                          const isSelected = contactedDay === day;
+                          return (
+                            <button
+                              key={day}
+                              type="button"
+                              onClick={() =>
+                                setContactDayMap((prev) => ({
+                                  ...prev,
+                                  [person.id]: day,
+                                }))
+                              }
+                              className={`px-2 py-0.5 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-emerald-700 text-white'
+                                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                              }`}
+                            >
+                              {day.slice(0, 3)}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 text-xs text-slate-700">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block mb-0.5">
-                      Next Touchpoint ({person.cadence})
+                  <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" aria-hidden="true" />
+                      Last: {person.lastContactedDate} ({contactedDay})
                     </span>
-                    {person.nextAction}
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const todayWeekday =
+                            DAYS_OF_WEEK[
+                              (new Date().getDay() + 6) % 7
+                            ] ?? 'Friday';
+                          setContactDayMap((prev) => ({
+                            ...prev,
+                            [person.id]: todayWeekday,
+                          }));
+                          onLogCheckIn(person.id);
+                        }}
+                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                        <span>Log Check-In</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onPushNextActionToTodo(
+                            `${person.name}: ${person.nextAction}`,
+                            `Relationship check-in (${person.organizationName} · Contacted ${contactedDay})`,
+                            person.lifeArea
+                          )
+                        }
+                        aria-label={`Add follow-up with ${person.name} to tasks`}
+                        className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <span>To Task</span>
+                        <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
-                    <Calendar className="w-3 h-3" aria-hidden="true" />
-                    Last: {person.lastContactedDate}
-                  </span>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => onLogCheckIn(person.id)}
-                      className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
-                      <span>Log Check-In</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onPushNextActionToTodo(
-                          `${person.name}: ${person.nextAction}`,
-                          `Relationship check-in (${person.organizationName})`,
-                          person.lifeArea
-                        )
-                      }
-                      aria-label={`Add follow-up with ${person.name} to tasks`}
-                      className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <span>To Task</span>
-                      <ArrowUpRight className="w-3 h-3" aria-hidden="true" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -557,7 +689,7 @@ export const RelationshipOrgDashboard: React.FC<
         <section aria-label="Organizations directory" className="space-y-2.5">
           <div className="flex items-center justify-between px-1">
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Organizations, Communities & Guilds ({filteredOrgs.length})
+              Organizations, Communities &amp; Guilds ({filteredOrgs.length})
             </h2>
           </div>
 

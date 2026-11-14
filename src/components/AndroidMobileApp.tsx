@@ -18,6 +18,9 @@ import {
   Clock,
   Kanban,
   GitCommitHorizontal,
+  PenTool,
+  Archive,
+  Brain,
 } from 'lucide-react';
 import {
   Category,
@@ -61,6 +64,10 @@ import { TaskViewsContainer } from './TaskViewsContainer';
 import { JournalDashboard } from './JournalDashboard';
 import { HabitDashboard } from './HabitDashboard';
 import { MemoSpikeWidget } from './MemoSpikeWidget';
+import { ExcalidrawPlanDashboard } from './ExcalidrawPlanDashboard';
+import { BacklogDashboard } from './BacklogDashboard';
+import { AffirmationDashboard } from './AffirmationDashboard';
+import { ReflectDashboard } from './ReflectDashboard';
 
 interface AndroidMobileAppProps {
   activeView: WorkspaceTab;
@@ -137,7 +144,13 @@ interface AndroidMobileAppProps {
   onUpdateTopicProgress: (topicId: string, deltaUnits: number) => void;
   onAddTopicResource: (
     topicId: string,
-    resource: { title: string; type: TopicResourceType; url: string }
+    resource: {
+      title: string;
+      type: TopicResourceType;
+      url: string;
+      fileName?: string;
+      fileSizeLabel?: string;
+    }
   ) => void;
   onToggleTopicResource: (topicId: string, resourceId: string) => void;
   onDeleteTopicResource: (topicId: string, resourceId: string) => void;
@@ -319,6 +332,26 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
     icon: React.ReactNode;
   }> = [
     {
+      id: 'backlog',
+      label: 'Backlog',
+      icon: <Archive className="w-3 h-3" aria-hidden="true" />,
+    },
+    {
+      id: 'affirmations',
+      label: 'Affirmations',
+      icon: <Sparkles className="w-3 h-3" aria-hidden="true" />,
+    },
+    {
+      id: 'reflect',
+      label: 'Reflect',
+      icon: <Brain className="w-3 h-3" aria-hidden="true" />,
+    },
+    {
+      id: 'plan',
+      label: 'Plan (Excalidraw)',
+      icon: <PenTool className="w-3 h-3" aria-hidden="true" />,
+    },
+    {
       id: 'timer',
       label: 'DoteTimer',
       icon: <Timer className="w-3 h-3" aria-hidden="true" />,
@@ -348,7 +381,7 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
   return (
     <div
       data-testid="android-mobile-9-16-app"
-      className="mx-auto h-[min(750px,calc(100vh-116px))] min-h-[580px] aspect-[9/16] w-auto max-w-full bg-slate-50 border-[5px] border-slate-900 rounded-[36px] shadow-xl flex flex-col overflow-hidden relative shrink-0"
+      className="mx-auto h-[min(750px,calc(100vh-116px))] min-h-[580px] aspect-[9/16] w-auto max-w-full bg-slate-50 rounded-2xl shadow-sm flex flex-col overflow-hidden relative shrink-0"
     >
       {/* Android Status Bar */}
       <div className="bg-slate-900 text-white px-5 pt-2 pb-1.5 flex items-center justify-between text-[11px] font-mono select-none shrink-0">
@@ -618,6 +651,33 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
               />
             )}
           </div>
+        ) : activeView === 'backlog' ? (
+          <BacklogDashboard
+            todos={todos}
+            brainDumpItems={brainDumpItems}
+            onAddBacklogTodo={onAddTodo}
+            onToggleTodo={onToggleTodo}
+            onDeleteTodo={onDeleteTodo}
+            onUpdateTodo={onUpdateTodo}
+            onAssignScheduledHour={onAssignScheduledHour}
+            onPromoteBrainDumpItem={onSwipeRight}
+            onRestoreBrainDumpToDeck={onRestoreToDeck}
+            onDeleteBrainDumpItem={onDeleteDumpItem}
+          />
+        ) : activeView === 'affirmations' ? (
+          <AffirmationDashboard />
+        ) : activeView === 'reflect' ? (
+          <ReflectDashboard
+            todos={todos}
+            onOpenEisenhowerMatrix={() => onSelectView('matrix')}
+            onAddTaskFromReflection={(params) => onAddTodo({ ...params })}
+          />
+        ) : activeView === 'plan' ? (
+          <ExcalidrawPlanDashboard
+            todos={todos}
+            topics={topics}
+            onAddTodoFromCanvas={onAddTodo}
+          />
         ) : activeView === 'habits' ? (
           <HabitDashboard
             habits={habits}

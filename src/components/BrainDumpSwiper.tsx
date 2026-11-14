@@ -9,12 +9,15 @@ import {
   Trash2,
   Layers,
   Sparkles,
+  GripVertical,
+  Clock,
 } from 'lucide-react';
 import {
   BrainDumpItem,
   Category,
   Priority,
   LIFE_AREAS,
+  HOURLY_DRAG_MIME_TYPE,
 } from '../utils/todoLogic';
 
 interface BrainDumpSwiperProps {
@@ -25,6 +28,8 @@ interface BrainDumpSwiperProps {
   onRestoreToDeck: (id: string) => void;
   onDeleteDumpItem: (id: string) => void;
   onSwitchToTodoList: () => void;
+  onDragStartBrainDumpCard?: (dumpId: string) => void;
+  onDragEndBrainDumpCard?: () => void;
 }
 
 const PRIORITY_LABELS: Record<Priority, { text: string; color: string }> = {
@@ -41,6 +46,8 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
   onRestoreToDeck,
   onDeleteDumpItem,
   onSwitchToTodoList,
+  onDragStartBrainDumpCard,
+  onDragEndBrainDumpCard,
 }) => {
   const [rawInput, setRawInput] = useState('');
   const [category, setCategory] = useState<Category>('Portfolio');
@@ -105,11 +112,24 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!topCard || exitDirection) return;
-    // Ignore pointer down on interactive child buttons
-    if ((e.target as HTMLElement).closest('button')) return;
+    // Ignore pointer down on interactive child buttons or the HTML5 hourly-calendar drag handle
+    if ((e.target as HTMLElement).closest('button, [data-hourly-drag-handle="true"]')) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     setIsDragging(true);
+  };
+
+  const handleStartHourlyDrag = (
+    e: React.DragEvent<HTMLElement>,
+    dumpId: string
+  ) => {
+    const token = `braindump:${dumpId}`;
+    e.dataTransfer.setData(HOURLY_DRAG_MIME_TYPE, token);
+    e.dataTransfer.setData('text/plain', token);
+    e.dataTransfer.effectAllowed = 'move';
+    if (onDragStartBrainDumpCard) {
+      onDragStartBrainDumpCard(dumpId);
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -268,17 +288,36 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                   </div>
 
                   <div>
-                    {/* Unboxed Metadata Line */}
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                      <span className="font-semibold text-slate-800">{topCard.category}</span>
-                      <span aria-hidden="true">·</span>
-                      <span className={PRIORITY_LABELS[topCard.priority].color}>
-                        {PRIORITY_LABELS[topCard.priority].text}
-                      </span>
-                      <span aria-hidden="true">·</span>
-                      <span className="font-mono tabular-nums text-slate-400">
-                        Card 1 of {queueItems.length}
-                      </span>
+                    <div className="flex items-center justify-between gap-2">
+                      {/* Unboxed Metadata Line */}
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <span className="font-semibold text-slate-800">{topCard.category}</span>
+                        <span aria-hidden="true">·</span>
+                        <span className={PRIORITY_LABELS[topCard.priority].color}>
+                          {PRIORITY_LABELS[topCard.priority].text}
+                        </span>
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono tabular-nums text-slate-400">
+                          Card 1 of {queueItems.length}
+                        </span>
+                      </div>
+
+                      {/* Draggable Pill to Pull Card directly into Side Hourly Calendar */}
+                      <div
+                        draggable
+                        data-hourly-drag-handle="true"
+                        data-testid={`braindump-drag-to-hourly-${topCard.id}`}
+                        onDragStart={(e) => handleStartHourlyDrag(e, topCard.id)}
+                        onDragEnd={() =>
+                          onDragEndBrainDumpCard && onDragEndBrainDumpCard()
+                        }
+                        title="Pull this card directly into the Side Hourly Calendar to schedule it!"
+                        className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-semibold flex items-center gap-1 cursor-grab active:cursor-grabbing shrink-0"
+                      >
+                        <GripVertical className="w-3.5 h-3.5 text-emerald-700" />
+                        <Clock className="w-3 h-3 text-emerald-700" />
+                        <span>Pull to Side Hourly Calendar</span>
+                      </div>
                     </div>
 
                     <h2
@@ -294,7 +333,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                       </p>
                     ) : (
                       <p className="mt-2 text-xs text-slate-400 italic">
-                        Drag card left or right, or use the triage buttons below.
+                        Swipe left/right, or pull the green handle above into any hour slot on the Side Hourly Calendar!
                       </p>
                     )}
                   </div>

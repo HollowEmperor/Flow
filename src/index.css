@@ -4,13 +4,479 @@
   --font-display: "Plus Jakarta Sans", sans-serif;
   --font-sans: "DM Sans", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+
+  /* Solid Flat Green, Blue & Purple Color System (No Gradients) */
+  --aurora-green-50: #ecfdf5;
+  --aurora-green-500: #10b981;
+  --aurora-green-600: #059669;
+  --aurora-green-700: #047857;
+
+  --aurora-blue-50: #eff6ff;
+  --aurora-blue-500: #3b82f6;
+  --aurora-blue-600: #2563eb;
+  --aurora-blue-700: #1d4ed8;
+
+  --aurora-purple-50: #f5f3ff;
+  --aurora-purple-500: #8b5cf6;
+  --aurora-purple-600: #7c3aed;
+  --aurora-purple-700: #6d28d9;
+  --aurora-purple-900: #2e1065;
 }
 
 @layer base {
   body {
     font-family: var(--font-sans);
+    background-color: #f8fafc;
+    color: #0f172a;
   }
   h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
   }
 }
+
+/* ==========================================================================
+   1. Pure CSS Keyframe & 3D Origami Engine — Animated Gratitude Star Jar
+   ========================================================================== */
+
+@keyframes css-star-drop {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, calc(-50% - 92px), 0) scale(0.35)
+      rotate(calc(var(--star-rot, 0deg) - 95deg));
+  }
+  68% {
+    opacity: 1;
+    transform: translate3d(-50%, calc(-50% + 5px), 0)
+      scale(calc(var(--star-scale, 1) * 1.1))
+      rotate(calc(var(--star-rot, 0deg) + 8deg));
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(-50%, -50%, 0) scale(var(--star-scale, 1))
+      rotate(var(--star-rot, 0deg));
+  }
+}
+
+@keyframes css-star-jostle {
+  0%,
+  100% {
+    transform: translate3d(-50%, -50%, 0) scale(var(--star-scale, 1))
+      rotate(var(--star-rot, 0deg));
+  }
+  25% {
+    transform: translate3d(-50%, calc(-50% - 6px), 0)
+      scale(calc(var(--star-scale, 1) * 1.07))
+      rotate(calc(var(--star-rot, 0deg) + var(--star-jostle, 14deg)));
+  }
+  65% {
+    transform: translate3d(-50%, calc(-50% + 3px), 0)
+      scale(var(--star-scale, 1))
+      rotate(calc(var(--star-rot, 0deg) - var(--star-jostle, 14deg)));
+  }
+}
+
+@keyframes css-jar-shake {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  20% {
+    transform: rotate(-5deg) scale(1.02);
+  }
+  40% {
+    transform: rotate(5deg) scale(1.02);
+  }
+  60% {
+    transform: rotate(-4deg) scale(1.01);
+  }
+  80% {
+    transform: rotate(4deg) scale(1.01);
+  }
+}
+
+@keyframes css-card-unfold {
+  0% {
+    opacity: 0;
+    transform: perspective(640px) rotateX(-10deg) translateY(5px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(640px) rotateX(0deg) translateY(0) scale(1);
+  }
+}
+
+.css-jar-vessel {
+  transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.css-jar-vessel.is-shaking {
+  animation: css-jar-shake 420ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.css-jar-liquid-fill {
+  transform: scaleY(var(--jar-fill, 0.04));
+  transform-origin: bottom center;
+  transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.css-origami-star-btn {
+  transform: translate3d(-50%, -50%, 0) scale(var(--star-scale, 1))
+    rotate(var(--star-rot, 0deg));
+  animation: css-star-drop 520ms cubic-bezier(0.22, 1.35, 0.36, 1) backwards;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    filter 180ms ease;
+}
+
+.css-origami-star-btn:hover {
+  transform: translate3d(-50%, calc(-50% - 2px), 0)
+    scale(calc(var(--star-scale, 1) * 1.16)) rotate(var(--star-rot, 0deg));
+}
+
+.css-origami-star-btn.is-selected {
+  transform: translate3d(-50%, -50%, 0) scale(1.24)
+    rotate(var(--star-rot, 0deg));
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.85));
+}
+
+.css-origami-star-btn.is-jostling {
+  animation: css-star-jostle 420ms ease-in-out both;
+}
+
+/* 5-Point Origami Paper Star via Pure CSS clip-path (Solid Flat Color) */
+.css-origami-star-outer {
+  clip-path: polygon(
+    50% 3%,
+    63% 33%,
+    95% 38%,
+    71% 60%,
+    77% 92%,
+    50% 76%,
+    23% 92%,
+    29% 60%,
+    5% 38%,
+    37% 33%
+  );
+}
+
+.css-origami-star-inner {
+  clip-path: polygon(
+    50% 7%,
+    62% 34%,
+    91% 39%,
+    69% 59%,
+    75% 88%,
+    50% 73%,
+    25% 88%,
+    31% 59%,
+    9% 39%,
+    38% 34%
+  );
+}
+
+.css-unfolded-star-card {
+  animation: css-card-unfold 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ==========================================================================
+   2. Pure CSS 3D & Keyframe Engine — Side-View MemoSpike Task Spindle
+   ========================================================================== */
+
+@keyframes css-memo-impale {
+  0% {
+    opacity: 0;
+    transform: translate3d(-50%, -138px, 0) scaleX(1.06);
+  }
+  64% {
+    opacity: 1;
+    transform: translate3d(-50%, 5px, 0) scaleX(0.99);
+  }
+  84% {
+    opacity: 1;
+    transform: translate3d(-50%, -2px, 0) scaleX(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(-50%, 0, 0) scaleX(var(--slip-scale-x, 1));
+  }
+}
+
+@keyframes css-stack-bounce {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+  35% {
+    transform: translateY(6px) scaleY(0.91);
+  }
+  70% {
+    transform: translateY(-2px) scaleY(1.02);
+  }
+}
+
+@keyframes css-spike-ring {
+  0% {
+    opacity: 0.95;
+    transform: translate(-50%, 0) scaleX(0.35) scaleY(0.25);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0) scaleX(2.4) scaleY(1.45);
+  }
+}
+
+@keyframes css-wave-reveal {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    opacity: 0.45;
+  }
+  100% {
+    clip-path: inset(0 0% 0 0);
+    opacity: 1;
+  }
+}
+
+.css-memospike-stack {
+  transform-origin: 50% 100%;
+}
+
+.css-memospike-stack.is-compressing {
+  animation: css-stack-bounce 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.css-spike-shockwave {
+  animation: css-spike-ring 480ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.css-waveform-strip {
+  animation: css-wave-reveal 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.css-side-paper-btn {
+  transform: translate3d(-50%, 0, 0) scaleX(var(--slip-scale-x, 1));
+  animation: css-memo-impale 460ms cubic-bezier(0.22, 1.3, 0.36, 1) backwards;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.css-side-paper-btn:hover {
+  transform: translate3d(-50%, -1.5px, 0)
+    scaleX(calc(var(--slip-scale-x, 1) * 1.025));
+}
+
+/* 3D Side-Elevation Foreshortened Paper Sheet Surface (Solid Flat Color) */
+.css-side-paper-surface {
+  transform: perspective(380px) rotateX(56deg)
+    rotateZ(var(--slip-skew-deg, -4deg)) skewX(var(--slip-tilt-deg, 3deg));
+  transform-style: preserve-3d;
+  background-color: var(--slip-bg, #eff6ff);
+  border: 1.5px solid var(--slip-border, #3b82f6);
+  box-shadow:
+    0 2px 0 var(--slip-rule, #bfdbfe),
+    0 3.8px 0 var(--slip-border, #3b82f6),
+    0 7px 12px rgba(15, 23, 42, 0.48);
+}
+
+.css-side-paper-btn.is-selected .css-side-paper-surface {
+  border-color: #10b981;
+  box-shadow:
+    0 2px 0 #a7f3d0,
+    0 4px 0 #059669,
+    0 0 0 1.5px rgba(59, 130, 246, 0.65),
+    0 8px 14px rgba(15, 23, 42, 0.55);
+}
+
+.css-needle-cone-tip {
+  clip-path: polygon(50% 0%, 8% 100%, 92% 100%);
+}
+
+.css-paper-puncture-collar {
+  clip-path: polygon(0% 100%, 18% 12%, 50% 48%, 82% 12%, 100% 100%);
+}
+
+/* 3D Tear-Off Desk Memo Block Inspector Card (with Solid Purple & Blue Paper-Stack Spine) */
+.css-3d-memo-block {
+  position: relative;
+  transform: perspective(760px) rotateY(8deg) rotateX(2deg);
+  transform-style: preserve-3d;
+  box-shadow:
+    -7px 6px 0 #8b5cf6,
+    -11px 9px 0 #2563eb,
+    -14px 14px 20px rgba(30, 27, 75, 0.22);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.css-3d-memo-block:hover {
+  transform: perspective(760px) rotateY(5deg) rotateX(1deg) translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .css-origami-star-btn,
+  .css-jar-vessel.is-shaking,
+  .css-unfolded-star-card,
+  .css-side-paper-btn,
+  .css-memospike-stack.is-compressing,
+  .css-spike-shockwave,
+  .css-waveform-strip,
+  .css-calendar-sheet-tearing,
+  .css-calendar-block-3d.is-settled {
+    animation-duration: 1ms !important;
+  }
+}
+
+/* ==========================================================================
+   3. Pure CSS 3D Desk Calendar Tear-Off Startup Animation (Once-Per-Day)
+   ========================================================================== */
+
+@keyframes css-calendar-sheet-tear {
+  0% {
+    opacity: 1;
+    transform-origin: 0% 0%;
+    transform: perspective(900px) translate3d(0, 0, 0) rotateZ(0deg)
+      skewX(0deg);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.14);
+  }
+  26% {
+    opacity: 1;
+    transform-origin: 0% 0%;
+    transform: perspective(900px) translate3d(10px, 14px, 0) rotateZ(8deg)
+      skewX(-5deg) scaleY(0.96);
+    box-shadow: -14px 22px 28px rgba(15, 23, 42, 0.32);
+  }
+  62% {
+    opacity: 0.96;
+    transform-origin: 0% 0%;
+    transform: perspective(900px) translate3d(58px, 96px, 0) rotateZ(22deg)
+      skewX(-9deg) scale(0.93);
+    box-shadow: -20px 36px 38px rgba(15, 23, 42, 0.34);
+  }
+  100% {
+    opacity: 0;
+    transform-origin: 0% 0%;
+    transform: perspective(900px) translate3d(155px, 240px, 0) rotateZ(36deg)
+      skewX(-12deg) scale(0.86);
+    box-shadow: -24px 48px 44px rgba(15, 23, 42, 0.05);
+  }
+}
+
+@keyframes css-calendar-land-settle {
+  0% {
+    transform: perspective(1050px) rotateY(15deg) rotateX(5deg) rotateZ(-2deg)
+      scale(1);
+  }
+  40% {
+    transform: perspective(1050px) rotateY(12deg) rotateX(3deg) rotateZ(-1deg)
+      scale(1.03);
+  }
+  100% {
+    transform: perspective(1050px) rotateY(15deg) rotateX(5deg) rotateZ(-2deg)
+      scale(1);
+  }
+}
+
+/* 3D Angled Tear-Off Desk Calendar Block with Solid Green-Blue-Purple Layered Spine */
+.css-calendar-block-3d {
+  position: relative;
+  background-color: #e8dfca;
+  transform: perspective(1050px) rotateY(15deg) rotateX(5deg) rotateZ(-2deg);
+  box-shadow:
+    -2px 2px 0 #a7f3d0,
+    -5px 4px 0 #34d399,
+    -9px 7px 0 #60a5fa,
+    -13px 10px 0 #3b82f6,
+    -17px 13px 0 #8b5cf6,
+    -21px 16px 0 #6d28d9,
+    -26px 26px 38px rgba(15, 23, 42, 0.52);
+  transition: transform 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.css-calendar-block-3d.is-settled {
+  animation: css-calendar-land-settle 460ms cubic-bezier(0.22, 1.3, 0.36, 1)
+    both;
+}
+
+.css-calendar-sheet-tearing {
+  animation: css-calendar-sheet-tear 680ms cubic-bezier(0.32, 0.04, 0.24, 1)
+    forwards;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   4. Pure CSS 3D Animated Topic Resource Library & Vertical Book Spines
+   ========================================================================== */
+
+@keyframes css-book-shelve-in {
+  0% {
+    opacity: 0;
+    transform: perspective(680px) translate3d(0, -44px, 24px) rotateZ(-9deg)
+      rotateY(-24deg) scale(0.92);
+  }
+  68% {
+    opacity: 1;
+    transform: perspective(680px) translate3d(0, 3px, 0) rotateZ(1.5deg)
+      rotateY(4deg) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(680px) translate3d(0, 0, 0) rotateZ(0deg)
+      rotateY(0deg) scale(1);
+  }
+}
+
+@keyframes css-book-inspector-open {
+  0% {
+    opacity: 0;
+    transform: perspective(760px) rotateY(-12deg) translateY(6px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(760px) rotateY(0deg) translateY(0) scale(1);
+  }
+}
+
+.css-library-book-spine {
+  position: relative;
+  transform-origin: bottom center;
+  animation: css-book-shelve-in 460ms cubic-bezier(0.22, 1.3, 0.36, 1) backwards;
+  transition:
+    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow:
+    3px 0 0 #e2e8f0,
+    5px 0 0 var(--spine-edge-color, #1e293b),
+    0 6px 12px rgba(15, 23, 42, 0.45);
+}
+
+.css-library-book-spine:hover {
+  transform: perspective(680px) translate3d(0, -10px, 12px) rotateZ(-1.5deg)
+    scale(1.04);
+  z-index: 30;
+  box-shadow:
+    4px 2px 0 #f8fafc,
+    7px 3px 0 var(--spine-edge-color, #1e293b),
+    0 14px 20px rgba(15, 23, 42, 0.55);
+}
+
+.css-library-book-spine.is-selected {
+  transform: perspective(680px) translate3d(0, -14px, 16px) rotateZ(-2deg)
+    scale(1.06);
+  z-index: 35;
+  box-shadow:
+    4px 2px 0 #ffffff,
+    7px 3px 0 #10b981,
+    0 0 0 2px #38bdf8,
+    0 16px 24px rgba(15, 23, 42, 0.65);
+}
+
+.css-spine-vertical-title {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+}
+
+.css-open-book-inspector {
+  animation: css-book-inspector-open 220ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  box-shadow:
+    -6px 5px 0 #f1f5f9,
+    -10px 8px 0 #cbd5e1,
+    0 10px 24px rgba(15, 23, 42, 0.14);
+}
+

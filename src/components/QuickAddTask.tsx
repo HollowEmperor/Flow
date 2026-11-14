@@ -57,12 +57,12 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = ({
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-white border border-slate-200 rounded-xl p-4 transition-colors focus-within:border-slate-400"
+      className="bg-white border border-slate-200 rounded-xl p-4 transition-colors focus-within:border-blue-600 shadow-2xs"
       aria-label="Add new task"
     >
       <div className="flex flex-wrap items-center gap-2.5">
         <div className="flex-1 min-w-[200px] flex items-center gap-2">
-          <Plus className="w-4 h-4 text-slate-400 shrink-0" aria-hidden="true" />
+          <Plus className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
           <label htmlFor="new-task-title" className="sr-only">
             Task title
           </label>
@@ -86,8 +86,8 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = ({
             aria-pressed={isRepeating}
             className={`px-2.5 py-2 text-xs font-medium rounded-lg transition-colors whitespace-nowrap shrink-0 flex items-center gap-1 cursor-pointer ${
               isRepeating
-                ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                ? 'bg-purple-50 text-purple-800 border border-purple-200'
+                : 'text-slate-600 hover:text-purple-900 hover:bg-purple-50/70'
             }`}
           >
             <Repeat className="w-3.5 h-3.5" aria-hidden="true" />
@@ -98,7 +98,7 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = ({
             type="button"
             onClick={() => setShowDetails((prev) => !prev)}
             aria-expanded={showDetails}
-            className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer"
+            className="px-3 py-2 text-xs font-medium text-slate-600 hover:text-blue-900 hover:bg-blue-50/70 rounded-lg transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer"
           >
             <AlignLeft className="w-3.5 h-3.5" aria-hidden="true" />
             <span>{showDetails ? 'Hide Options' : 'Options'}</span>
@@ -106,7 +106,7 @@ export const QuickAddTask: React.FC<QuickAddTaskProps> = ({
 
           <button
             type="submit"
-            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer shadow-2xs"
           >
             Add Task
           </button>

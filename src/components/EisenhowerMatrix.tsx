@@ -9,6 +9,8 @@ import {
   Circle,
   Trash2,
   LayoutGrid,
+  GripVertical,
+  Clock,
 } from 'lucide-react';
 import {
   Category,
@@ -18,6 +20,8 @@ import {
   EisenhowerQuadrant,
   EISENHOWER_QUADRANTS,
   EISENHOWER_QUADRANT_META,
+  HOURLY_DRAG_MIME_TYPE,
+  formatHourSlotLabel,
   groupTodosByEisenhower,
   computeEisenhowerSummary,
   getTodayIsoDate,
@@ -36,6 +40,8 @@ interface EisenhowerMatrixProps {
     dueDate: string;
     quadrant: EisenhowerQuadrant;
   }) => void;
+  onDragStartTask?: (todoId: string) => void;
+  onDragEndTask?: () => void;
 }
 
 const QUADRANT_STYLES: Record<
@@ -81,6 +87,8 @@ export const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
   onDeleteTodo,
   onAssignQuadrant,
   onAddTodoInQuadrant,
+  onDragStartTask,
+  onDragEndTask,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<Category | 'All'>(
     'All'
@@ -119,6 +127,18 @@ export const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
     setQuickAddTitle('');
   };
 
+  const handleDragStartCard = (
+    e: React.DragEvent<HTMLDivElement>,
+    todoId: string
+  ) => {
+    e.dataTransfer.setData(HOURLY_DRAG_MIME_TYPE, todoId);
+    e.dataTransfer.setData('text/plain', todoId);
+    e.dataTransfer.effectAllowed = 'move';
+    if (onDragStartTask) {
+      onDragStartTask(todoId);
+    }
+  };
+
   return (
     <div
       data-testid="eisenhower-matrix-workspace"
@@ -138,8 +158,8 @@ export const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
               </h1>
             </div>
             <p className="text-xs text-slate-600 mt-0.5">
-              Prioritize tasks by Urgency and Importance across your 7 Life
-              Areas.
+              Prioritize tasks by Urgency and Importance. Pull any matrix card
+              directly into the Side Hourly Calendar to schedule it!
             </p>
           </div>
 
@@ -305,30 +325,41 @@ export const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
                   tasks.map((todo) => (
                     <div
                       key={todo.id}
-                      className={`p-2.5 rounded-lg border transition-colors ${
+                      draggable
+                      data-testid={`matrix-card-${todo.id}`}
+                      onDragStart={(e) => handleDragStartCard(e, todo.id)}
+                      onDragEnd={() => onDragEndTask && onDragEndTask()}
+                      title="Pull this card into the Side Hourly Calendar to schedule it"
+                      className={`p-2.5 rounded-lg border transition-colors cursor-grab active:cursor-grabbing ${
                         todo.completed
                           ? 'bg-slate-50 border-slate-200/70 opacity-70'
-                          : 'bg-white border-slate-200 hover:border-slate-300'
+                          : 'bg-white border-slate-200 hover:border-emerald-300'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onToggleTodo(todo.id)}
-                          aria-label={`Mark "${todo.title}" as ${
-                            todo.completed ? 'incomplete' : 'completed'
-                          }`}
-                          className="mt-0.5 text-slate-400 hover:text-emerald-600 transition-colors shrink-0 cursor-pointer"
-                        >
-                          {todo.completed ? (
-                            <CheckCircle2
-                              className="w-4 h-4 text-emerald-600"
-                              aria-hidden="true"
-                            />
-                          ) : (
-                            <Circle className="w-4 h-4" aria-hidden="true" />
-                          )}
-                        </button>
+                        <div className="flex items-center gap-1 mt-0.5 shrink-0">
+                          <GripVertical
+                            className="w-3.5 h-3.5 text-slate-400"
+                            aria-hidden="true"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => onToggleTodo(todo.id)}
+                            aria-label={`Mark "${todo.title}" as ${
+                              todo.completed ? 'incomplete' : 'completed'
+                            }`}
+                            className="text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
+                          >
+                            {todo.completed ? (
+                              <CheckCircle2
+                                className="w-4 h-4 text-emerald-600"
+                                aria-hidden="true"
+                              />
+                            ) : (
+                              <Circle className="w-4 h-4" aria-hidden="true" />
+                            )}
+                          </button>
+                        </div>
 
                         <div className="flex-1 min-w-0">
                           <p
@@ -344,6 +375,12 @@ export const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
                             <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-medium">
                               {todo.category}
                             </span>
+                            {todo.scheduledHour !== undefined && (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-semibold flex items-center gap-1">
+                                <Clock className="w-2.5 h-2.5" />
+                                {formatHourSlotLabel(todo.scheduledHour)}
+                              </span>
+                            )}
                             <span className="font-mono text-slate-500">
                               Due {todo.dueDate}
                             </span>
@@ -402,3 +439,4 @@ export const EisenhowerMatrix: React.FC<EisenhowerMatrixProps> = ({
     </div>
   );
 };
+
