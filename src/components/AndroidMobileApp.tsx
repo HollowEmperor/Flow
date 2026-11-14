@@ -60,6 +60,7 @@ import { HourlyCalendarPanel } from './HourlyCalendarPanel';
 import { TaskViewsContainer } from './TaskViewsContainer';
 import { JournalDashboard } from './JournalDashboard';
 import { HabitDashboard } from './HabitDashboard';
+import { MemoSpikeWidget } from './MemoSpikeWidget';
 
 interface AndroidMobileAppProps {
   activeView: WorkspaceTab;
@@ -568,6 +569,13 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
                 categoryFilter === 'All' ? 'Portfolio' : categoryFilter
               }
               onAdd={onAddTodo}
+            />
+
+            {/* MemoSpike Task Spindle Animation */}
+            <MemoSpikeWidget
+              todos={todos}
+              activeCategory={categoryFilter}
+              onSpikeTask={onToggleTodo}
             />
 
             {taskViewMode === 'list' ? (

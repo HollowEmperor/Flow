@@ -116,6 +116,7 @@ import { HourlyCalendarPanel } from './components/HourlyCalendarPanel';
 import { TaskViewsContainer } from './components/TaskViewsContainer';
 import { JournalDashboard } from './components/JournalDashboard';
 import { HabitDashboard } from './components/HabitDashboard';
+import { MemoSpikeWidget } from './components/MemoSpikeWidget';
 
 const STORAGE_KEY = 'focusflow_todos_v4';
 const BRAINDUMP_STORAGE_KEY = 'focusflow_braindump_v2';
@@ -1187,6 +1188,13 @@ export default function App() {
                       categoryFilter === 'All' ? 'Portfolio' : categoryFilter
                     }
                     onAdd={handleAddTodo}
+                  />
+
+                  {/* MemoSpike Task Spindle Animation in Task Dashboard */}
+                  <MemoSpikeWidget
+                    todos={todos}
+                    activeCategory={categoryFilter}
+                    onSpikeTask={handleToggleTodo}
                   />
 
                   {/* Task View Switcher (List View / Kanban View / Timeline View) + Status & Search Toolbar */}

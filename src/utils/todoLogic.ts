@@ -2138,16 +2138,21 @@ export function createJournalEntry(params: {
 }): JournalEntry {
   const cleanTitle = params.title.trim();
   const cleanContent = params.content.trim();
-  if (!cleanTitle && !cleanContent) {
-    throw new Error('Journal title or reflection content is required');
+  const cleanGratitude = (params.gratitude ?? '').trim();
+  if (!cleanTitle && !cleanContent && !cleanGratitude) {
+    throw new Error('Journal title, reflection content, or gratitude note is required');
   }
   return {
     id:
       params.id ??
       `journal-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    title: cleanTitle || 'Daily Reflection',
+    title:
+      cleanTitle ||
+      (cleanGratitude && !cleanContent
+        ? `${normalizeCategory(params.lifeArea)} Gratitude Star`
+        : 'Daily Reflection'),
     content: cleanContent,
-    gratitude: (params.gratitude ?? '').trim(),
+    gratitude: cleanGratitude,
     lifeArea: normalizeCategory(params.lifeArea),
     mood: params.mood ?? 'Focused',
     dateIso: params.dateIso || getTodayIsoDate(),
@@ -2162,9 +2167,458 @@ export function deleteJournalEntry(
   return entries.filter((e) => e.id !== id);
 }
 
+export interface GratitudeStar {
+  id: string;
+  entryId: string;
+  gratitudeText: string;
+  entryTitle: string;
+  reflectionContent: string;
+  lifeArea: Category;
+  mood: JournalMood;
+  dateIso: string;
+  createdAt: number;
+  xPercent: number;
+  yPercent: number;
+  rotationDeg: number;
+  colorHex: string;
+  strokeHex: string;
+  scale: number;
+}
+
+export interface GratitudeJarStats {
+  starCount: number;
+  jarCapacity: number;
+  fillPercent: number;
+  fillLevelLabel: string;
+  byLifeArea: Record<Category, number>;
+}
+
+const STAR_PALETTE_BY_AREA: Record<
+  Category,
+  { fill: string; stroke: string }
+> = {
+  Portfolio: { fill: '#FBBF24', stroke: '#B45309' }, // Warm Amber Gold
+  Karma: { fill: '#34D399', stroke: '#047857' }, // Mint Emerald
+  Knowledge: { fill: '#60A5FA', stroke: '#1D4ED8' }, // Celestial Blue
+  Personality: { fill: '#F472B6', stroke: '#BE185D' }, // Origami Rose
+  Social: { fill: '#FB923C', stroke: '#C2410C' }, // Coral Tangerine
+  Strength: { fill: '#A78BFA', stroke: '#5B21B6' }, // Lavender Violet
+  Aesthetics: { fill: '#2DD4BF', stroke: '#0F766E' }, // Seafoam Teal
+};
+
+function hashStringDeterministically(input: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
+/**
+ * Extracts paper stars from journal entries that include a gratitude note.
+ * Positions stars in stacked physical layers from the bottom of the jar upward
+ * so the jar visually fills up as more gratitude notes are added.
+ */
+export function extractGratitudeStars(
+  entries: JournalEntry[]
+): GratitudeStar[] {
+  const withGratitude = entries
+    .filter((e) => e.gratitude && e.gratitude.trim().length > 0)
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt);
+
+  const slotsPerRow = 4;
+  return withGratitude.map((entry, index) => {
+    const hash = hashStringDeterministically(entry.id + entry.gratitude);
+    const row = Math.floor(index / slotsPerRow);
+    const col = index % slotsPerRow;
+
+    // Horizontal distribution inside the jar body (22% to 71%) leaving right-side gauge clear
+    const baseCols = [24, 38, 53, 67];
+    const rowOffset = row % 2 === 1 ? 3 : -2;
+    const jitterX = ((hash % 7) - 3) * 0.9;
+    const xPercent = Math.max(
+      20,
+      Math.min(71, Number((baseCols[col] + rowOffset + jitterX).toFixed(1)))
+    );
+
+    // Vertical stacking from bottom (84%) upward toward top neck (24%)
+    const baseBottom = 84;
+    const rowStep = 10.5;
+    const jitterY = (((hash >> 3) % 7) - 3) * 0.8;
+    const yPercent = Math.max(
+      22,
+      Math.min(86, Number((baseBottom - row * rowStep + jitterY).toFixed(1)))
+    );
+
+    const rotationDeg = ((hash % 56) - 28);
+    const scale = Number((0.92 + ((hash % 17) / 100)).toFixed(2));
+    const area = normalizeCategory(entry.lifeArea);
+    const palette = STAR_PALETTE_BY_AREA[area] ?? STAR_PALETTE_BY_AREA.Portfolio;
+
+    return {
+      id: `star-${entry.id}`,
+      entryId: entry.id,
+      gratitudeText: entry.gratitude.trim(),
+      entryTitle: entry.title,
+      reflectionContent: entry.content,
+      lifeArea: area,
+      mood: entry.mood,
+      dateIso: entry.dateIso,
+      createdAt: entry.createdAt,
+      xPercent,
+      yPercent,
+      rotationDeg,
+      colorHex: palette.fill,
+      strokeHex: palette.stroke,
+      scale,
+    };
+  });
+}
+
+export function computeGratitudeJarStats(
+  entries: JournalEntry[],
+  baseCapacity: number = 10
+): GratitudeJarStats {
+  const stars = extractGratitudeStars(entries);
+  const starCount = stars.length;
+  const jarCapacity = Math.max(1, baseCapacity);
+  const fillPercent = Math.max(
+    0,
+    Math.min(100, Math.round((starCount / jarCapacity) * 100))
+  );
+
+  const byLifeArea: Record<Category, number> = {
+    Portfolio: 0,
+    Karma: 0,
+    Knowledge: 0,
+    Personality: 0,
+    Social: 0,
+    Strength: 0,
+    Aesthetics: 0,
+  };
+
+  for (const star of stars) {
+    byLifeArea[star.lifeArea] = (byLifeArea[star.lifeArea] ?? 0) + 1;
+  }
+
+  let fillLevelLabel = 'Empty Jar · Add your first star';
+  if (fillPercent >= 100) {
+    fillLevelLabel = 'Jar Full · Overflowing Starlight';
+  } else if (fillPercent >= 70) {
+    fillLevelLabel = 'Brimming with Gratitude';
+  } else if (fillPercent >= 40) {
+    fillLevelLabel = 'Glowing Warmly · Half Full';
+  } else if (fillPercent > 0) {
+    fillLevelLabel = 'Kindling Starlight';
+  }
+
+  return {
+    starCount,
+    jarCapacity,
+    fillPercent,
+    fillLevelLabel: fillLevelLabel.trim(),
+    byLifeArea,
+  };
+}
+
+export function pickRandomGratitudeStar(
+  stars: GratitudeStar[],
+  currentStarId: string | null = null,
+  randomValue: number = Math.random()
+): GratitudeStar | null {
+  if (stars.length === 0) return null;
+  if (stars.length === 1) return stars[0];
+
+  const candidates = currentStarId
+    ? stars.filter((s) => s.id !== currentStarId && s.entryId !== currentStarId)
+    : stars;
+  const pool = candidates.length > 0 ? candidates : stars;
+  const clamped = Math.max(0, Math.min(0.999999, randomValue));
+  const idx = Math.floor(clamped * pool.length);
+  return pool[idx];
+}
+
+export const JOURNAL_MOODS: readonly JournalMood[] = [
+  'Peak',
+  'Focused',
+  'Calm',
+  'Reflective',
+] as const;
+
+export const MOOD_ENERGY_SCORES: Record<JournalMood, number> = {
+  Peak: 100,
+  Focused: 82,
+  Calm: 68,
+  Reflective: 54,
+};
+
+export interface MoodDayPoint {
+  dateIso: string;
+  shortDate: string;
+  mood: JournalMood | null;
+  energyScore: number;
+  entryCount: number;
+  topLifeArea: Category | null;
+}
+
+export interface MoodTrackerStats {
+  totalMoodLogs: number;
+  dominantMood: JournalMood | null;
+  averageEnergyScore: number;
+  countsByMood: Record<JournalMood, number>;
+  percentsByMood: Record<JournalMood, number>;
+  recentDays: MoodDayPoint[];
+  svgPolylinePoints: string;
+}
+
+export function computeMoodTrackerStats(
+  entries: JournalEntry[],
+  daysCount: number = 7,
+  todayIso: string = getTodayIsoDate()
+): MoodTrackerStats {
+  const countsByMood: Record<JournalMood, number> = {
+    Peak: 0,
+    Focused: 0,
+    Calm: 0,
+    Reflective: 0,
+  };
+
+  let totalEnergy = 0;
+  for (const entry of entries) {
+    const m = entry.mood ?? 'Focused';
+    countsByMood[m] = (countsByMood[m] ?? 0) + 1;
+    totalEnergy += MOOD_ENERGY_SCORES[m] ?? 75;
+  }
+
+  const totalMoodLogs = entries.length;
+  const averageEnergyScore =
+    totalMoodLogs === 0 ? 0 : Math.round(totalEnergy / totalMoodLogs);
+
+  const percentsByMood: Record<JournalMood, number> = {
+    Peak:
+      totalMoodLogs === 0
+        ? 0
+        : Math.round((countsByMood.Peak / totalMoodLogs) * 100),
+    Focused:
+      totalMoodLogs === 0
+        ? 0
+        : Math.round((countsByMood.Focused / totalMoodLogs) * 100),
+    Calm:
+      totalMoodLogs === 0
+        ? 0
+        : Math.round((countsByMood.Calm / totalMoodLogs) * 100),
+    Reflective:
+      totalMoodLogs === 0
+        ? 0
+        : Math.round((countsByMood.Reflective / totalMoodLogs) * 100),
+  };
+
+  let dominantMood: JournalMood | null = null;
+  let maxCount = 0;
+  for (const m of JOURNAL_MOODS) {
+    if (countsByMood[m] > maxCount) {
+      maxCount = countsByMood[m];
+      dominantMood = m;
+    }
+  }
+
+  const dates = getRecentIsoDates(Math.max(1, daysCount), todayIso);
+  const recentDays: MoodDayPoint[] = dates.map((dateIso) => {
+    const dayEntries = entries
+      .filter((e) => e.dateIso === dateIso)
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    if (dayEntries.length === 0) {
+      return {
+        dateIso,
+        shortDate: dateIso.slice(5),
+        mood: null,
+        energyScore: 0,
+        entryCount: 0,
+        topLifeArea: null,
+      };
+    }
+
+    const latest = dayEntries[0];
+    const avgDayEnergy = Math.round(
+      dayEntries.reduce(
+        (acc, curr) => acc + (MOOD_ENERGY_SCORES[curr.mood] ?? 75),
+        0
+      ) / dayEntries.length
+    );
+
+    return {
+      dateIso,
+      shortDate: dateIso.slice(5),
+      mood: latest.mood,
+      energyScore: avgDayEnergy,
+      entryCount: dayEntries.length,
+      topLifeArea: latest.lifeArea,
+    };
+  });
+
+  // Build SVG polyline points in a 280x72 coordinate space for days with logs
+  const width = 280;
+  const height = 72;
+  const padX = 18;
+  const padY = 12;
+  const usableW = width - padX * 2;
+  const usableH = height - padY * 2;
+
+  const svgPolylinePoints = recentDays
+    .map((pt, idx) => {
+      const x =
+        recentDays.length <= 1
+          ? width / 2
+          : Number((padX + (idx / (recentDays.length - 1)) * usableW).toFixed(1));
+      const effectiveEnergy = pt.energyScore > 0 ? pt.energyScore : 40;
+      const normalized = Math.max(0, Math.min(100, effectiveEnergy)) / 100;
+      const y = Number((padY + (1 - normalized) * usableH).toFixed(1));
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return {
+    totalMoodLogs,
+    dominantMood,
+    averageEnergyScore,
+    countsByMood,
+    percentsByMood,
+    recentDays,
+    svgPolylinePoints,
+  };
+}
+
+// ============================================================================
+// MemoSpike Animation & Task Spindle Logic (Task Dashboard)
+// ============================================================================
+
+export interface MemoSpikeSlip {
+  id: string;
+  todoId: string;
+  title: string;
+  category: Category;
+  priority: Priority;
+  dueDate: string;
+  streakCount: number;
+  stackIndex: number;
+  bottomOffsetPx: number;
+  rotationDeg: number;
+  paperBgHex: string;
+  paperBorderHex: string;
+  spikeAmplitude: number;
+}
+
+export interface MemoSpikeStats {
+  spikedCount: number;
+  activeRemainingCount: number;
+  spikeVelocityScore: number;
+  slips: MemoSpikeSlip[];
+  waveformPoints: string;
+}
+
+const SLIP_COLORS_BY_AREA: Record<
+  Category,
+  { bg: string; border: string }
+> = {
+  Portfolio: { bg: '#FEF3C7', border: '#F59E0B' },
+  Karma: { bg: '#D1FAE5', border: '#10B981' },
+  Knowledge: { bg: '#DBEAFE', border: '#3B82F6' },
+  Personality: { bg: '#FCE7F3', border: '#EC4899' },
+  Social: { bg: '#FFEDD5', border: '#F97316' },
+  Strength: { bg: '#EDE9FE', border: '#8B5CF6' },
+  Aesthetics: { bg: '#CCFBF1', border: '#14B8A6' },
+};
+
+export function computeMemoSpikeStats(todos: TodoItem[]): MemoSpikeStats {
+  const completedTodos = todos
+    .filter((t) => t.completed)
+    .slice()
+    .sort((a, b) => a.createdAt - b.createdAt);
+
+  const activeRemainingCount = todos.filter((t) => !t.completed).length;
+  const spikedCount = completedTodos.length;
+
+  const slips: MemoSpikeSlip[] = completedTodos.map((todo, idx) => {
+    const hash = hashStringDeterministically(todo.id + todo.title);
+    const rotationDeg = (hash % 23) - 11; // -11deg to +11deg
+    const bottomOffsetPx = Math.min(138, 16 + idx * 18);
+    const area = normalizeCategory(todo.category);
+    const palette = SLIP_COLORS_BY_AREA[area] ?? SLIP_COLORS_BY_AREA.Portfolio;
+    const priorityBoost =
+      todo.priority === 'high' ? 32 : todo.priority === 'medium' ? 20 : 12;
+    const streakBoost = Math.min(25, (todo.streakCount ?? 0) * 2);
+    const spikeAmplitude = Math.min(100, 42 + priorityBoost + streakBoost);
+
+    return {
+      id: `slip-${todo.id}`,
+      todoId: todo.id,
+      title: todo.title,
+      category: area,
+      priority: todo.priority,
+      dueDate: todo.dueDate,
+      streakCount: todo.streakCount ?? 0,
+      stackIndex: idx,
+      bottomOffsetPx,
+      rotationDeg,
+      paperBgHex: palette.bg,
+      paperBorderHex: palette.border,
+      spikeAmplitude,
+    };
+  });
+
+  const totalCount = Math.max(1, todos.length);
+  const baseVelocity = Math.round((spikedCount / totalCount) * 70);
+  const highPrioritySpiked = completedTodos.filter(
+    (t) => t.priority === 'high'
+  ).length;
+  const spikeVelocityScore = Math.min(
+    100,
+    baseVelocity + highPrioritySpiked * 12 + Math.min(18, spikedCount * 4)
+  );
+
+  // Build deterministic MemoSpike ECG/oscilloscope waveform points (240x48)
+  const samples = 14;
+  const w = 240;
+  const h = 48;
+  const baselineY = 36;
+  const pts: string[] = [];
+
+  for (let i = 0; i < samples; i++) {
+    const x = Number(((i / (samples - 1)) * w).toFixed(1));
+    let y = baselineY;
+    const slipIdx = i - (samples - 1 - slips.length);
+    if (slipIdx >= 0 && slipIdx < slips.length) {
+      const amp = slips[slipIdx].spikeAmplitude;
+      y = Number(
+        Math.max(5, baselineY - (amp / 100) * 30).toFixed(1)
+      );
+    } else if (i % 2 === 1) {
+      y = baselineY - 3;
+    }
+    pts.push(`${x},${y}`);
+  }
+
+  return {
+    spikedCount,
+    activeRemainingCount,
+    spikeVelocityScore,
+    slips,
+    waveformPoints: pts.join(' '),
+  };
+}
+
 export function getInitialSeedJournalEntries(
   todayIso: string = getTodayIsoDate()
 ): JournalEntry[] {
+  const recentDates = getRecentIsoDates(4, todayIso);
+  const d0 = recentDates[3] ?? todayIso;
+  const d1 = recentDates[2] ?? todayIso;
+  const d2 = recentDates[1] ?? todayIso;
+  const d3 = recentDates[0] ?? todayIso;
+
   return [
     {
       id: 'journal-1',
@@ -2174,7 +2628,7 @@ export function getInitialSeedJournalEntries(
       gratitude: 'Grateful for Elena’s thoughtful review on the RFC.',
       lifeArea: 'Portfolio',
       mood: 'Peak',
-      dateIso: todayIso,
+      dateIso: d0,
       createdAt: 1731482000000,
     },
     {
@@ -2185,7 +2639,7 @@ export function getInitialSeedJournalEntries(
       gratitude: 'Consistent morning training energy with Devon.',
       lifeArea: 'Strength',
       mood: 'Focused',
-      dateIso: todayIso,
+      dateIso: d1,
       createdAt: 1731481000000,
     },
     {
@@ -2196,8 +2650,19 @@ export function getInitialSeedJournalEntries(
       gratitude: 'High-trust community friendships that sharpen perspective.',
       lifeArea: 'Social',
       mood: 'Calm',
-      dateIso: todayIso,
+      dateIso: d2,
       createdAt: 1731480000000,
+    },
+    {
+      id: 'journal-4',
+      title: 'Open-Source Mentorship Pairing',
+      content:
+        'Helped Aisha debug her first async test suite and land her pull request cleanly.',
+      gratitude: 'Seeing a mentee gain confidence in their engineering craft.',
+      lifeArea: 'Karma',
+      mood: 'Reflective',
+      dateIso: d3,
+      createdAt: 1731479000000,
     },
   ];
 }

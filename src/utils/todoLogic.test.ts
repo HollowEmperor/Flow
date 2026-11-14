@@ -634,6 +634,213 @@ test('Radar Social navigation, Journal Dashboard, and Habit Heatmap work as expe
   assert.equal(todayCell.intensityLevel, 4);
 });
 
+test('Gratitude Jar extracts paper stars, stacks coordinates upward, and computes automatic jar fill level as notes increase', async () => {
+  const {
+    createJournalEntry,
+    extractGratitudeStars,
+    computeGratitudeJarStats,
+    pickRandomGratitudeStar,
+  } = await import('./todoLogic.ts');
+
+  const e1 = createJournalEntry({
+    id: 'g-1',
+    title: 'Morning Focus',
+    content: 'Shipped the core parser.',
+    gratitude: 'Grateful for deep uninterrupted morning hours.',
+    lifeArea: 'Portfolio',
+    mood: 'Peak',
+    dateIso: '2026-11-11',
+    createdAt: 1000,
+  });
+
+  // Entry without gratitude should not add a paper star
+  const eNoGratitude = createJournalEntry({
+    id: 'g-empty',
+    title: 'Quick log',
+    content: 'Just a regular note without gratitude.',
+    gratitude: '   ',
+    lifeArea: 'Knowledge',
+    mood: 'Calm',
+    dateIso: '2026-11-12',
+    createdAt: 2000,
+  });
+
+  // Gratitude-only quick star entry
+  const e2 = createJournalEntry({
+    id: 'g-2',
+    title: '',
+    content: '',
+    gratitude: 'Warm coffee and a great conversation with a friend.',
+    lifeArea: 'Social',
+    mood: 'Reflective',
+    dateIso: '2026-11-13',
+    createdAt: 3000,
+  });
+
+  assert.equal(e2.title, 'Social Gratitude Star');
+
+  const stars = extractGratitudeStars([e2, eNoGratitude, e1]);
+  assert.equal(stars.length, 2);
+  // Oldest star first (at bottom of jar)
+  assert.equal(stars[0].entryId, 'g-1');
+  assert.equal(stars[1].entryId, 'g-2');
+  assert.equal(
+    stars[0].gratitudeText,
+    'Grateful for deep uninterrupted morning hours.'
+  );
+
+  // Check jar automatic fill calculation as more notes are put into it
+  const stats2 = computeGratitudeJarStats([e1, eNoGratitude, e2], 10);
+  assert.equal(stats2.starCount, 2);
+  assert.equal(stats2.fillPercent, 20);
+  assert.equal(stats2.byLifeArea.Portfolio, 1);
+  assert.equal(stats2.byLifeArea.Social, 1);
+
+  const moreEntries = [
+    e1,
+    e2,
+    createJournalEntry({
+      id: 'g-3',
+      title: '',
+      content: '',
+      gratitude: 'Hit a new pull-up personal record.',
+      lifeArea: 'Strength',
+      createdAt: 4000,
+    }),
+    createJournalEntry({
+      id: 'g-4',
+      title: '',
+      content: '',
+      gratitude: 'Mentored a teammate on system design.',
+      lifeArea: 'Karma',
+      createdAt: 5000,
+    }),
+    createJournalEntry({
+      id: 'g-5',
+      title: '',
+      content: '',
+      gratitude: 'Finished a chapter on distributed consensus.',
+      lifeArea: 'Knowledge',
+      createdAt: 6000,
+    }),
+  ];
+
+  const stats5 = computeGratitudeJarStats(moreEntries, 10);
+  assert.equal(stats5.starCount, 5);
+  assert.equal(stats5.fillPercent, 50);
+  assert.ok(stats5.fillPercent > stats2.fillPercent);
+
+  const all5Stars = extractGratitudeStars(moreEntries);
+  // 5th star is on row 1 (higher up in the jar, so smaller yPercent than row 0)
+  assert.ok(all5Stars[4].yPercent < all5Stars[0].yPercent);
+
+  const picked = pickRandomGratitudeStar(all5Stars, all5Stars[0].id, 0.0);
+  assert.ok(picked);
+  assert.notEqual(picked.id, all5Stars[0].id);
+});
+
+test('Mood Tracker computes 7-day mood energy trend, dominant mood, and distribution percentages', async () => {
+  const {
+    createJournalEntry,
+    computeMoodTrackerStats,
+    MOOD_ENERGY_SCORES,
+  } = await import('./todoLogic.ts');
+
+  const today = '2026-11-13';
+  const entries = [
+    createJournalEntry({
+      id: 'm1',
+      title: 'Peak Day',
+      content: 'Great flow',
+      lifeArea: 'Portfolio',
+      mood: 'Peak',
+      dateIso: '2026-11-13',
+      createdAt: 3000,
+    }),
+    createJournalEntry({
+      id: 'm2',
+      title: 'Peak Morning',
+      content: 'Strong workout',
+      lifeArea: 'Strength',
+      mood: 'Peak',
+      dateIso: '2026-11-12',
+      createdAt: 2000,
+    }),
+    createJournalEntry({
+      id: 'm3',
+      title: 'Calm Evening',
+      content: 'Reading',
+      lifeArea: 'Knowledge',
+      mood: 'Calm',
+      dateIso: '2026-11-11',
+      createdAt: 1000,
+    }),
+  ];
+
+  const stats = computeMoodTrackerStats(entries, 7, today);
+  assert.equal(stats.totalMoodLogs, 3);
+  assert.equal(stats.dominantMood, 'Peak');
+  assert.equal(stats.countsByMood.Peak, 2);
+  assert.equal(stats.countsByMood.Calm, 1);
+  assert.equal(stats.percentsByMood.Peak, 67);
+  assert.equal(stats.recentDays.length, 7);
+
+  const todayPoint = stats.recentDays[stats.recentDays.length - 1];
+  assert.equal(todayPoint.dateIso, '2026-11-13');
+  assert.equal(todayPoint.mood, 'Peak');
+  assert.equal(todayPoint.energyScore, MOOD_ENERGY_SCORES.Peak);
+  assert.equal(stats.svgPolylinePoints.split(' ').length, 7);
+});
+
+test('MemoSpike computes stacked paper slips on spindle, velocity score, and spike waveform points', async () => {
+  const {
+    createTodoItem,
+    toggleTodoCompletion,
+    computeMemoSpikeStats,
+  } = await import('./todoLogic.ts');
+
+  const t1 = createTodoItem({
+    id: 'ms-1',
+    title: 'Ship API gateway',
+    category: 'Portfolio',
+    priority: 'high',
+    streakCount: 5,
+    createdAt: 1000,
+  });
+  const t2 = createTodoItem({
+    id: 'ms-2',
+    title: 'Write unit tests',
+    category: 'Knowledge',
+    priority: 'medium',
+    createdAt: 2000,
+  });
+  const t3 = createTodoItem({
+    id: 'ms-3',
+    title: 'Active task remaining',
+    category: 'Strength',
+    priority: 'low',
+    createdAt: 3000,
+  });
+
+  const withCompleted = toggleTodoCompletion(
+    toggleTodoCompletion([t1, t2, t3], 'ms-1', '2026-11-13'),
+    'ms-2',
+    '2026-11-13'
+  );
+
+  const spikeStats = computeMemoSpikeStats(withCompleted);
+  assert.equal(spikeStats.spikedCount, 2);
+  assert.equal(spikeStats.activeRemainingCount, 1);
+  assert.equal(spikeStats.slips.length, 2);
+  assert.equal(spikeStats.slips[0].todoId, 'ms-1');
+  assert.equal(spikeStats.slips[1].todoId, 'ms-2');
+  // Second slip stacks higher on the vertical spindle than first slip
+  assert.ok(spikeStats.slips[1].bottomOffsetPx > spikeStats.slips[0].bottomOffsetPx);
+  assert.ok(spikeStats.spikeVelocityScore > 0);
+  assert.equal(spikeStats.waveformPoints.split(' ').length, 14);
+});
+
+
 
 
 

@@ -14,6 +14,8 @@ import {
   JournalEntry,
   getTodayIsoDate,
 } from '../utils/todoLogic';
+import { GratitudeJar } from './GratitudeJar';
+import { MoodTracker } from './MoodTracker';
 
 interface JournalDashboardProps {
   entries: JournalEntry[];
@@ -66,9 +68,13 @@ export const JournalDashboard: React.FC<JournalDashboardProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() && !content.trim()) return;
+    if (!title.trim() && !content.trim() && !gratitude.trim()) return;
     onAddEntry({
-      title: title.trim() || `${lifeArea} Reflection`,
+      title:
+        title.trim() ||
+        (gratitude.trim() && !content.trim()
+          ? `${lifeArea} Gratitude Star`
+          : `${lifeArea} Reflection`),
       content: content.trim(),
       gratitude: gratitude.trim(),
       lifeArea,
@@ -82,6 +88,12 @@ export const JournalDashboard: React.FC<JournalDashboardProps> = ({
 
   return (
     <div data-testid="journal-dashboard" className="space-y-4 @container">
+      {/* Animated Gratitude Jar with Paper Stars */}
+      <GratitudeJar entries={entries} onAddGratitudeNote={onAddEntry} />
+
+      {/* Daily Mood & Energy Tracker */}
+      <MoodTracker entries={entries} onLogMoodCheckIn={onAddEntry} />
+
       {/* Header & Entry Composer */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 space-y-3.5">
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -195,7 +207,7 @@ export const JournalDashboard: React.FC<JournalDashboardProps> = ({
 
             <button
               type="submit"
-              disabled={!title.trim() && !content.trim()}
+              disabled={!title.trim() && !content.trim() && !gratitude.trim()}
               className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" aria-hidden="true" />
