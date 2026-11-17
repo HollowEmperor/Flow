@@ -5,7 +5,10 @@ import {
   BookOpen,
   Calendar as CalendarIcon,
   Layers,
-  Sparkles,
+  BarChart3,
+  Award,
+  ChevronDown,
+  ChevronUp,
   Wifi,
   BatteryCharging,
   Signal,
@@ -21,6 +24,8 @@ import {
   PenTool,
   Archive,
   Brain,
+  Compass,
+  MapPin,
 } from 'lucide-react';
 import {
   Category,
@@ -47,9 +52,9 @@ import {
   HabitCategoryType,
   HabitItem,
   resolveRadarAreaNavigation,
+  getTodayIsoDate,
 } from '../utils/todoLogic';
 import { QuickAddTask } from './QuickAddTask';
-import { TaskRow } from './TaskRow';
 import { TaskWheelPicker } from './TaskWheelPicker';
 import { BrainDumpSwiper } from './BrainDumpSwiper';
 import { LifeRadarChart } from './LifeRadarChart';
@@ -68,6 +73,11 @@ import { ExcalidrawPlanDashboard } from './ExcalidrawPlanDashboard';
 import { BacklogDashboard } from './BacklogDashboard';
 import { AffirmationDashboard } from './AffirmationDashboard';
 import { ReflectDashboard } from './ReflectDashboard';
+import { VisionDashboard } from './VisionDashboard';
+import { GoogleMapsDashboard } from './GoogleMapsDashboard';
+import { RealTimeFlipClock } from './RealTimeFlipClock';
+import { ProductiveDayFeed } from './ProductiveDayFeed';
+import { ProductiveInfographicsPanel } from './ProductiveInfographicsPanel';
 
 interface AndroidMobileAppProps {
   activeView: WorkspaceTab;
@@ -227,6 +237,9 @@ interface AndroidMobileAppProps {
     habitType: HabitCategoryType;
     oldHabitToReplace?: string;
     targetPerWeek: number;
+    whenTime?: string;
+    durationMinutes?: number;
+    streakTargetDays?: number;
   }) => void;
 }
 
@@ -291,6 +304,7 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
   const [mobileTaskSubTab, setMobileTaskSubTab] = useState<
     'list' | 'insights' | 'hourly'
   >('list');
+  const todayIso = getTodayIsoDate();
 
   const bottomNavItems: Array<{
     id: WorkspaceTab;
@@ -300,7 +314,7 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
   }> = [
     {
       id: 'tasks',
-      label: 'Tasks',
+      label: 'Today',
       badge: stats.active,
       icon: <ListTodo className="w-4 h-4" aria-hidden="true" />,
     },
@@ -310,19 +324,19 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
       icon: <Flame className="w-4 h-4" aria-hidden="true" />,
     },
     {
-      id: 'matrix',
-      label: 'Matrix',
-      icon: <LayoutGrid className="w-4 h-4" aria-hidden="true" />,
+      id: 'timer',
+      label: 'Focus',
+      icon: <Timer className="w-4 h-4" aria-hidden="true" />,
     },
     {
-      id: 'network',
-      label: 'Network',
-      icon: <Users className="w-4 h-4" aria-hidden="true" />,
+      id: 'goals',
+      label: 'Goals',
+      icon: <Target className="w-4 h-4" aria-hidden="true" />,
     },
     {
-      id: 'journal',
-      label: 'Journal',
-      icon: <BookText className="w-4 h-4" aria-hidden="true" />,
+      id: 'reflect',
+      label: 'Reflect',
+      icon: <Brain className="w-4 h-4" aria-hidden="true" />,
     },
   ];
 
@@ -332,6 +346,21 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
     icon: React.ReactNode;
   }> = [
     {
+      id: 'flipclock',
+      label: 'Flip Clock',
+      icon: <Clock className="w-3 h-3" aria-hidden="true" />,
+    },
+    {
+      id: 'visions',
+      label: 'Visions',
+      icon: <Compass className="w-3 h-3" aria-hidden="true" />,
+    },
+    {
+      id: 'maps',
+      label: 'Google Maps',
+      icon: <MapPin className="w-3 h-3" aria-hidden="true" />,
+    },
+    {
       id: 'backlog',
       label: 'Backlog',
       icon: <Archive className="w-3 h-3" aria-hidden="true" />,
@@ -339,7 +368,7 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
     {
       id: 'affirmations',
       label: 'Affirmations',
-      icon: <Sparkles className="w-3 h-3" aria-hidden="true" />,
+      icon: <Award className="w-3 h-3" aria-hidden="true" />,
     },
     {
       id: 'reflect',
@@ -403,91 +432,96 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
         </div>
       </div>
 
-      {/* Mobile Top App Bar */}
+      {/* Mobile Top App Bar (Strict <=15% Viewport Sticky Cap with Collapsible Studios Sheet) */}
       <div className="bg-white border-b border-slate-200 px-3.5 py-2 space-y-1.5 shrink-0">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-bold tracking-tight text-slate-900 font-display">
-                FocusFlow
-              </span>
-              <span className="text-[11px] font-mono text-emerald-700 font-semibold">
-                · {stats.completionRate}%
-              </span>
-            </div>
+        <div className="flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-sm font-bold tracking-tight text-slate-900 font-display truncate">
+              FocusFlow
+            </span>
+            <span className="text-[11px] font-mono tabular-nums text-emerald-700 font-semibold shrink-0">
+              · {stats.completionRate}%
+            </span>
           </div>
 
-          {activeView === 'tasks' && (
-            <div
-              role="group"
-              aria-label="Mobile task sub-view"
-              className="bg-slate-100 p-0.5 rounded-lg flex items-center text-[10px] font-semibold shrink-0"
-            >
-              <button
-                type="button"
-                onClick={() => setMobileTaskSubTab('list')}
-                className={`px-2 py-1 rounded-md transition-colors cursor-pointer ${
-                  mobileTaskSubTab === 'list'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+          <div className="flex items-center gap-1 shrink-0">
+            {activeView === 'tasks' && (
+              <div
+                role="group"
+                aria-label="Mobile task sub-view"
+                className="bg-slate-100 p-0.5 rounded-lg flex items-center text-[10px] font-semibold shrink-0"
               >
-                Tasks ({stats.active})
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileTaskSubTab('insights')}
-                className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer ${
-                  mobileTaskSubTab === 'insights'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Sparkles
-                  className="w-2.5 h-2.5 text-emerald-600"
-                  aria-hidden="true"
-                />
-                <span>Wheel & Radar</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setMobileTaskSubTab('hourly')}
-                className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 cursor-pointer ${
-                  mobileTaskSubTab === 'hourly'
-                    ? 'bg-white text-slate-900 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Clock
-                  className="w-2.5 h-2.5 text-emerald-600"
-                  aria-hidden="true"
-                />
-                <span>Hourly</span>
-              </button>
-            </div>
-          )}
-        </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileTaskSubTab('list')}
+                  className={`px-2 py-1 rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                    mobileTaskSubTab === 'list'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Today ({stats.active})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTaskSubTab('insights')}
+                  className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap cursor-pointer ${
+                    mobileTaskSubTab === 'insights'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <BarChart3
+                    className="w-2.5 h-2.5 text-emerald-600"
+                    aria-hidden="true"
+                  />
+                  <span>Stats</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMobileTaskSubTab('hourly')}
+                  className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap cursor-pointer ${
+                    mobileTaskSubTab === 'hourly'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Clock
+                    className="w-2.5 h-2.5 text-emerald-600"
+                    aria-hidden="true"
+                  />
+                  <span>Hourly</span>
+                </button>
+              </div>
+            )}
 
-        {/* Secondary Feature Strip for Mobile */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-          {secondaryQuickPills.map((pill) => {
-            const isCurrent = activeView === pill.id;
-            return (
-              <button
-                key={pill.id}
-                type="button"
-                onClick={() => onSelectView(pill.id)}
-                className={`px-2 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
-                  isCurrent
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {pill.icon}
-                <span>{pill.label}</span>
-              </button>
-            );
-          })}
+            <details className="relative group">
+              <summary className="list-none px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold flex items-center gap-1 cursor-pointer select-none whitespace-nowrap">
+                <span>Studios</span>
+                <ChevronDown className="w-3 h-3 text-slate-500 group-open:rotate-180 transition-transform" />
+              </summary>
+              <div className="absolute right-0 mt-1.5 w-60 bg-white border border-slate-200 rounded-xl shadow-lg p-2 z-30 grid grid-cols-2 gap-1">
+                {secondaryQuickPills.map((pill) => {
+                  const isCurrent = activeView === pill.id;
+                  return (
+                    <button
+                      key={pill.id}
+                      type="button"
+                      onClick={() => onSelectView(pill.id)}
+                      className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${
+                        isCurrent
+                          ? 'bg-slate-900 text-white font-semibold'
+                          : 'text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {pill.icon}
+                      <span className="truncate">{pill.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </details>
+          </div>
         </div>
       </div>
 
@@ -495,12 +529,16 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
       <div className="flex-1 overflow-y-auto px-3.5 py-3.5 space-y-3.5 @container">
         {activeView === 'tasks' && mobileTaskSubTab === 'insights' ? (
           <div className="space-y-4">
-            <TaskWheelPicker
+            <ProductiveInfographicsPanel
+              todayIso={todayIso}
               todos={todos}
+              habits={habits}
               activeCategory={categoryFilter}
-              selectedFocusTaskId={selectedFocusTaskId}
-              onSelectFocusTask={onSelectFocusTask}
-              onCompleteTask={onToggleTodo}
+              onSelectCategory={(cat) => {
+                const nav = resolveRadarAreaNavigation(cat);
+                onSelectCategoryFilter(nav.categoryFilter);
+              }}
+              onToggleHabitDate={onToggleHabitDate}
             />
             <LifeRadarChart
               todos={todos}
@@ -515,6 +553,13 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
                 }
               }}
               onAdjustBaseScore={onAdjustBaseScore}
+            />
+            <TaskWheelPicker
+              todos={todos}
+              activeCategory={categoryFilter}
+              selectedFocusTaskId={selectedFocusTaskId}
+              onSelectFocusTask={onSelectFocusTask}
+              onCompleteTask={onToggleTodo}
             />
           </div>
         ) : activeView === 'tasks' && mobileTaskSubTab === 'hourly' ? (
@@ -604,43 +649,26 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
               onAdd={onAddTodo}
             />
 
-            {/* MemoSpike Task Spindle Animation */}
-            <MemoSpikeWidget
-              todos={todos}
-              activeCategory={categoryFilter}
-              onSpikeTask={onToggleTodo}
-            />
-
             {taskViewMode === 'list' ? (
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                {visibleTodos.length > 0 ? (
-                  <div role="list" aria-label="Android mobile task list">
-                    {visibleTodos.map((todo) => (
-                      <TaskRow
-                        key={todo.id}
-                        todo={todo}
-                        isFocused={selectedFocusTaskId === todo.id}
-                        onToggle={onToggleTodo}
-                        onDelete={onDeleteTodo}
-                        onUpdate={onUpdateTodo}
-                        onAddSubtask={onAddSubtask}
-                        onToggleSubtask={onToggleSubtask}
-                        onDeleteSubtask={onDeleteSubtask}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="py-10 px-4 text-center">
-                    <CheckCircle2
-                      className="w-6 h-6 text-slate-400 mx-auto mb-2"
-                      aria-hidden="true"
-                    />
-                    <p className="text-xs font-semibold text-slate-800">
-                      No tasks in this filter
-                    </p>
-                  </div>
-                )}
-              </div>
+              <ProductiveDayFeed
+                todayIso={todayIso}
+                todos={visibleTodos}
+                habits={
+                  categoryFilter === 'All'
+                    ? habits
+                    : habits.filter((h) => h.lifeArea === categoryFilter)
+                }
+                selectedFocusTaskId={selectedFocusTaskId}
+                onToggleTodo={onToggleTodo}
+                onDeleteTodo={onDeleteTodo}
+                onUpdateTodo={onUpdateTodo}
+                onAddSubtask={onAddSubtask}
+                onToggleSubtask={onToggleSubtask}
+                onDeleteSubtask={onDeleteSubtask}
+                onAssignScheduledHour={onAssignScheduledHour}
+                onToggleHabitDate={onToggleHabitDate}
+                onDeployRoutineTaskToTodo={onAddTodo}
+              />
             ) : (
               <TaskViewsContainer
                 mode={taskViewMode}
@@ -650,7 +678,46 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
                 onMoveKanbanStage={onMoveKanbanStage}
               />
             )}
+
+            {/* Real-Time Flip Clock & MemoSpike Completed Spindle in Mobile Studio Shelf */}
+            <RealTimeFlipClock
+              todos={todos}
+              defaultCompact={true}
+              onCompleteTask={onToggleTodo}
+              onOpenFocusTimer={() => onSelectView('timer')}
+            />
+
+            <MemoSpikeWidget
+              todos={todos}
+              activeCategory={categoryFilter}
+              onSpikeTask={onToggleTodo}
+            />
           </div>
+        ) : activeView === 'flipclock' ? (
+          <RealTimeFlipClock
+            todos={todos}
+            defaultCompact={true}
+            onCompleteTask={onToggleTodo}
+            onOpenFocusTimer={() => onSelectView('timer')}
+          />
+        ) : activeView === 'visions' ? (
+          <VisionDashboard
+            topics={topics}
+            roadmaps={goalRoadmaps}
+            habits={habits}
+            todos={todos}
+            brainDumpItems={brainDumpItems}
+            onNavigateTab={(tab) => onSelectView(tab)}
+            onDeployRoutineTaskToTodo={onAddTodo}
+            onToggleTodo={onToggleTodo}
+          />
+        ) : activeView === 'maps' ? (
+          <GoogleMapsDashboard
+            todos={todos}
+            habits={habits}
+            topics={topics}
+            onAddTodoWithLocation={onAddTodo}
+          />
         ) : activeView === 'backlog' ? (
           <BacklogDashboard
             todos={todos}
@@ -681,8 +748,10 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
         ) : activeView === 'habits' ? (
           <HabitDashboard
             habits={habits}
+            todos={todos}
             onToggleHabitDate={onToggleHabitDate}
             onAddHabit={onAddHabit}
+            onDeployRoutineTaskToTodo={onAddTodo}
           />
         ) : activeView === 'matrix' ? (
           <EisenhowerMatrix
@@ -780,11 +849,11 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
         )}
       </div>
 
-      {/* Bottom Navigation Bar for Android 9:16 Version */}
+      {/* Bottom Navigation Bar for Android 9:16 Version (44x44px Minimum Touch Hitboxes) */}
       <nav
         aria-label="Android bottom navigation bar"
         data-testid="android-bottom-nav"
-        className="bg-white border-t border-slate-200 px-2 pt-1.5 pb-1 grid grid-cols-5 gap-1 shrink-0"
+        className="bg-white border-t border-slate-200 px-2 pt-1 pb-1 grid grid-cols-5 gap-1 shrink-0"
       >
         {bottomNavItems.map((item) => {
           const isActive = activeView === item.id;
@@ -794,14 +863,14 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
               type="button"
               onClick={() => onSelectView(item.id)}
               aria-current={isActive ? 'page' : undefined}
-              className={`py-1.5 px-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer relative ${
+              className={`min-h-[48px] min-w-[44px] py-1 px-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer relative whitespace-nowrap ${
                 isActive
                   ? 'text-slate-900 font-bold'
                   : 'text-slate-500 hover:text-slate-900'
               }`}
             >
               <div
-                className={`px-3 py-1 rounded-full flex items-center justify-center transition-colors ${
+                className={`px-2.5 py-0.5 rounded-full flex items-center justify-center transition-colors ${
                   isActive ? 'bg-emerald-100 text-emerald-900' : ''
                 }`}
               >

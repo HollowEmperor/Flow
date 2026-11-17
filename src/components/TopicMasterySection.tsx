@@ -38,9 +38,9 @@ export interface TopicMasteryRecord {
   skillProofNote: string;
   skillUnlocked: boolean;
 
-  // Option 2: Gain a Certificate or a Medal with Attached Photos
+  // Option 2: Gain a Certificate, Medal, or Plaque with Attached Photos
   awardEnabled: boolean;
-  awardKind: 'Certificate' | 'Medal';
+  awardKind: 'Certificate' | 'Medal' | 'Plaque';
   awardTitle: string;
   awardIssuer: string;
   awardPhotos: MasteryPhotoAttachment[];
@@ -269,10 +269,10 @@ export const TopicMasteryOverviewCabinet: React.FC<
             <span>3 Ways to Know You Have Mastered a Topic</span>
           </div>
           <h2 className="text-base sm:text-lg font-bold font-display">
-            Topic Mastery Proof: Skills · Certificates &amp; Medals · Titles &amp; Positions
+            Topic Completion: Certificates, Medals &amp; Plaques · Titles &amp; Positions · Skills
           </h2>
           <p className="text-xs text-slate-300 mt-0.5">
-            Complete a topic to unlock: (1) a verified Skill, (2) a Certificate or Medal with attached photos, or (3) a new Title or Position.
+            Topics are areas you learn by working towards a certain Goal — completed by Certificate, Medal, Plaque (with attached photos), Title, or Position.
           </p>
         </div>
 
@@ -908,7 +908,7 @@ export const TopicMasteryStudio: React.FC<TopicMasteryStudioProps> = ({
                     Option 2 · Tangible Credential
                   </span>
                   <h3 className="text-sm font-bold text-slate-900">
-                    Certificate or Medal + Photos
+                    Certificate, Medal, or Plaque + Photos
                   </h3>
                 </div>
               </div>
@@ -937,9 +937,9 @@ export const TopicMasteryStudio: React.FC<TopicMasteryStudioProps> = ({
               </button>
             </div>
 
-            {/* Switch between Certificate and Medal */}
-            <div className="grid grid-cols-2 gap-1.5 bg-white p-1 rounded-xl border border-slate-200">
-              {(['Certificate', 'Medal'] as const).map((kind) => (
+            {/* Switch between Certificate, Medal, and Plaque */}
+            <div className="grid grid-cols-3 gap-1.5 bg-white p-1 rounded-xl border border-slate-200">
+              {(['Certificate', 'Medal', 'Plaque'] as const).map((kind) => (
                 <button
                   key={kind}
                   type="button"
@@ -947,7 +947,7 @@ export const TopicMasteryStudio: React.FC<TopicMasteryStudioProps> = ({
                   onClick={() =>
                     onUpdateRecord({ ...record, awardKind: kind })
                   }
-                  className={`py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`py-1.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                     record.awardKind === kind
                       ? 'bg-blue-600 text-white'
                       : 'text-slate-600 hover:text-slate-900'

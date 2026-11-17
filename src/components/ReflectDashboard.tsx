@@ -274,24 +274,23 @@ export const ReflectDashboard: React.FC<ReflectDashboardProps> = ({
     <div data-testid="reflect-dashboard" className="space-y-4">
       {/* Header & KPI Summary Strip */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-purple-900 text-[11px] font-bold uppercase tracking-wider mb-1.5">
-              <Brain className="w-3.5 h-3.5 text-purple-700" aria-hidden="true" />
-              <span>Mindful Introspection · Systems · Self-Respect</span>
+            <div className="flex items-center gap-2">
+              <Brain className="w-5 h-5 text-purple-700" aria-hidden="true" />
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
+                Reflect &amp; Decision Audit
+              </h1>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
-              Reflect Dashboard
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-600 mt-0.5 max-w-2xl">
-              Audit your decisions, catch resistance patterns (&ldquo;I should do this, but before that I need…&rdquo;), review comfort-zone risks, and practice unconditional self-respect.
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5 max-w-2xl">
+              Audit your daily decisions, catch resistance patterns early, review comfort-zone risks, and practice unconditional self-respect.
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 shrink-0">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-center">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Decisions Today
+          <div className="flex items-center divide-x divide-slate-200 border border-slate-200 rounded-xl bg-slate-50/70 shrink-0">
+            <div className="px-3.5 py-2 text-center">
+              <div className="text-[11px] font-medium text-slate-500">
+                Decisions
               </div>
               <div
                 data-testid="reflect-decisions-count"
@@ -300,17 +299,17 @@ export const ReflectDashboard: React.FC<ReflectDashboardProps> = ({
                 {decisionsCount}
               </div>
             </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-center">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            <div className="px-3.5 py-2 text-center">
+              <div className="text-[11px] font-medium text-slate-500">
                 Prianka List
               </div>
               <div className="text-base font-bold font-mono tabular-nums text-emerald-700 mt-0.5">
-                {priankaListSent ? 'SENT' : 'PENDING'}
+                {priankaListSent ? 'Sent' : 'Pending'}
               </div>
             </div>
-            <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-center">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                Reflections
+            <div className="px-3.5 py-2 text-center">
+              <div className="text-[11px] font-medium text-slate-500">
+                Snapshots
               </div>
               <div className="text-base font-bold font-mono tabular-nums text-purple-700 mt-0.5">
                 {snapshots.length}

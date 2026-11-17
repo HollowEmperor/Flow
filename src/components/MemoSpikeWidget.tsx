@@ -125,13 +125,17 @@ export const MemoSpikeWidget: React.FC<MemoSpikeWidgetProps> = ({
               aria-hidden="true"
             />
             <h2 className="text-base font-bold tracking-tight text-slate-900 font-display">
-              MemoSpike Task Spindle
+              MemoSpike Task Spindle — Completed Board
             </h2>
+            <span className="px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold uppercase">
+              Completed Archive
+            </span>
           </div>
           <p className="text-xs text-slate-600 mt-0.5">
-            Pure CSS 3D side-elevation desk spindle—watch completed paper memos
-            pierce the needle tip, slide down the steel rod, and stack in
-            profile.
+            Your Completed Board in 3D side-elevation—tasks from{' '}
+            <strong>To Do</strong>, <strong>Later</strong>, and{' '}
+            <strong>Delegate</strong> pierce the needle tip when finished and
+            stack on the spindle.
           </p>
         </div>
 

@@ -19,7 +19,12 @@ export type EisenhowerQuadrant =
   | 'eliminate';
 
 export type TaskViewMode = 'list' | 'kanban' | 'timeline';
-export type KanbanStage = 'todo' | 'in_progress' | 'done';
+export type KanbanStage =
+  | 'todo'
+  | 'later'
+  | 'delegate'
+  | 'in_progress'
+  | 'done';
 
 export interface Subtask {
   id: string;
@@ -1450,6 +1455,9 @@ export function getInitialSeedGoalRoadmaps(): TopicGoalRoadmap[] {
 export type AppLayoutVersion = 'tablet' | 'mobile' | 'split';
 
 export type WorkspaceTab =
+  | 'flipclock'
+  | 'visions'
+  | 'maps'
   | 'tasks'
   | 'backlog'
   | 'affirmations'
@@ -2120,9 +2128,18 @@ export function getInitialSeedFocusLogs(): FocusSessionLog[] {
 
 export function resolveKanbanStage(todo: TodoItem): KanbanStage {
   if (todo.completed) return 'done';
-  if (todo.kanbanStage === 'in_progress') return 'in_progress';
+  if (todo.kanbanStage === 'delegate' || todo.quadrant === 'delegate') {
+    return 'delegate';
+  }
+  if (
+    todo.kanbanStage === 'later' ||
+    todo.kanbanStage === 'in_progress' ||
+    todo.quadrant === 'schedule'
+  ) {
+    return 'later';
+  }
   if (todo.subtasks && todo.subtasks.some((s) => s.completed)) {
-    return 'in_progress';
+    return 'later';
   }
   return 'todo';
 }
@@ -2142,10 +2159,19 @@ export function moveTodoToKanbanStage(
       if (isNowDone && !wasDone) nextStreak += 1;
       if (!isNowDone && wasDone) nextStreak = Math.max(0, nextStreak - 1);
     }
+    const nextQuadrant =
+      stage === 'delegate'
+        ? 'delegate'
+        : stage === 'later' || stage === 'in_progress'
+          ? 'schedule'
+          : stage === 'todo'
+            ? 'do_first'
+            : todo.quadrant;
     return {
       ...todo,
       completed: isNowDone,
       kanbanStage: stage,
+      quadrant: nextQuadrant,
       streakCount: nextStreak,
       lastCompletedDate: isNowDone ? todayIso : todo.lastCompletedDate,
     };
@@ -2157,12 +2183,17 @@ export function groupTodosByKanban(
 ): Record<KanbanStage, TodoItem[]> {
   const columns: Record<KanbanStage, TodoItem[]> = {
     todo: [],
+    later: [],
+    delegate: [],
     in_progress: [],
     done: [],
   };
   for (const t of todos) {
     const stage = resolveKanbanStage(t);
     columns[stage].push(t);
+    if (stage === 'later') {
+      columns.in_progress.push(t);
+    }
   }
   return columns;
 }
@@ -3028,6 +3059,14 @@ export const HABIT_CATEGORY_OPTIONS: Array<{
   },
 ];
 
+export interface SavedRoutineTaskStep {
+  id: string;
+  title: string;
+  notes?: string;
+  scheduledHour?: number;
+  durationMinutes?: number;
+}
+
 export interface HabitItem {
   id: string;
   title: string;
@@ -3036,6 +3075,11 @@ export interface HabitItem {
   oldHabitToReplace?: string;
   targetPerWeek: number;
   completedDates: string[]; // Array of YYYY-MM-DD strings
+  whenTime?: string; // When the habit happens (e.g., "07:00 AM · Morning")
+  durationMinutes?: number; // Duration in minutes (e.g., 45)
+  streakTargetDays?: number; // Streak target that completes the habit (e.g., 21)
+  linkedGoalTopicId?: string; // Goal / Topic this habit completes
+  routineTasks?: SavedRoutineTaskStep[]; // Saved set of tasks that make up this habit routine
 }
 
 export interface HeatmapDayCell {
@@ -3076,6 +3120,11 @@ export function createHabitItem(params: {
   oldHabitToReplace?: string;
   targetPerWeek?: number;
   completedDates?: string[];
+  whenTime?: string;
+  durationMinutes?: number;
+  streakTargetDays?: number;
+  linkedGoalTopicId?: string;
+  routineTasks?: SavedRoutineTaskStep[];
 }): HabitItem {
   const clean = params.title.trim();
   if (!clean) {
@@ -3093,6 +3142,24 @@ export function createHabitItem(params: {
     oldHabitToReplace,
     targetPerWeek: Math.max(1, Math.min(7, params.targetPerWeek ?? 7)),
     completedDates: Array.from(new Set(params.completedDates ?? [])).sort(),
+    whenTime: params.whenTime?.trim() || '07:00 AM · Morning Block',
+    durationMinutes: Math.max(5, params.durationMinutes ?? 30),
+    streakTargetDays: Math.max(3, params.streakTargetDays ?? 21),
+    linkedGoalTopicId: params.linkedGoalTopicId,
+    routineTasks: params.routineTasks ?? [
+      {
+        id: `rt-${Date.now()}-1`,
+        title: `${clean} — Preparation & Setup Note`,
+        notes: 'Saved routine task step 1',
+        scheduledHour: 7,
+      },
+      {
+        id: `rt-${Date.now()}-2`,
+        title: `${clean} — Core Execution Block`,
+        notes: 'Saved routine task step 2',
+        scheduledHour: 8,
+      },
+    ],
   };
 }
 
@@ -3296,6 +3363,24 @@ export function getInitialSeedHabits(
       lifeArea: 'Portfolio',
       habitType: 'build_helpful',
       targetPerWeek: 6,
+      whenTime: '08:00 AM · First Deep Block',
+      durationMinutes: 90,
+      streakTargetDays: 21,
+      linkedGoalTopicId: 'topic-seed-1',
+      routineTasks: [
+        {
+          id: 'rt-seed-1a',
+          title: 'Close all messaging tabs & open architecture RFC note',
+          notes: 'Zero-distraction environment prep before coding',
+          scheduledHour: 8,
+        },
+        {
+          id: 'rt-seed-1b',
+          title: 'Write & verify core TypeScript module tests',
+          notes: 'Ship 1 atomic increment toward goal',
+          scheduledHour: 9,
+        },
+      ],
       completedDates: last365.filter((_, idx) => idx % 5 !== 0 && idx % 13 !== 0),
     },
     {
@@ -3304,6 +3389,24 @@ export function getInitialSeedHabits(
       lifeArea: 'Strength',
       habitType: 'build_helpful',
       targetPerWeek: 5,
+      whenTime: '06:30 AM · Post-Wakeup',
+      durationMinutes: 45,
+      streakTargetDays: 21,
+      linkedGoalTopicId: 'topic-seed-3',
+      routineTasks: [
+        {
+          id: 'rt-seed-2a',
+          title: '10m Joint Warmup & Scapular Pulls',
+          notes: 'Prepare shoulders and thoracic spine',
+          scheduledHour: 6,
+        },
+        {
+          id: 'rt-seed-2b',
+          title: '35m Weighted Rings & Zone-2 Conditioning',
+          notes: 'Log reps and heart rate recovery',
+          scheduledHour: 7,
+        },
+      ],
       completedDates: last365.filter((_, idx) => idx % 3 !== 0),
     },
     {
@@ -3312,6 +3415,18 @@ export function getInitialSeedHabits(
       lifeArea: 'Knowledge',
       habitType: 'break_unhelpful',
       targetPerWeek: 7,
+      whenTime: '10:00 PM · Evening Wind-Down',
+      durationMinutes: 30,
+      streakTargetDays: 14,
+      linkedGoalTopicId: 'topic-seed-2',
+      routineTasks: [
+        {
+          id: 'rt-seed-3a',
+          title: 'Dock phone outside bedroom & set analog alarm',
+          notes: 'Remove screen trigger before sleep',
+          scheduledHour: 22,
+        },
+      ],
       completedDates: last365.filter((_, idx) => idx % 4 !== 1),
     },
     {
@@ -3320,6 +3435,18 @@ export function getInitialSeedHabits(
       lifeArea: 'Strength',
       habitType: 'break_unhelpful',
       targetPerWeek: 7,
+      whenTime: '02:00 PM · Afternoon Transition',
+      durationMinutes: 15,
+      streakTargetDays: 14,
+      linkedGoalTopicId: 'topic-seed-3',
+      routineTasks: [
+        {
+          id: 'rt-seed-4a',
+          title: 'Brew green tea & hydrate with electrolytes',
+          notes: 'Replace afternoon sugar spike with clean hydration',
+          scheduledHour: 14,
+        },
+      ],
       completedDates: last365.filter((_, idx) => idx % 2 === 0 || idx > 350),
     },
     {
@@ -3329,6 +3456,18 @@ export function getInitialSeedHabits(
       lifeArea: 'Knowledge',
       habitType: 'replace_old',
       targetPerWeek: 6,
+      whenTime: '07:15 AM · With Morning Tea',
+      durationMinutes: 30,
+      streakTargetDays: 21,
+      linkedGoalTopicId: 'topic-seed-2',
+      routineTasks: [
+        {
+          id: 'rt-seed-5a',
+          title: 'Read 15 pages from Topic Library book spine',
+          notes: 'Capture 1 key mental model in notes',
+          scheduledHour: 7,
+        },
+      ],
       completedDates: last365.filter((_, idx) => idx % 3 !== 2 || idx >= 352),
     },
     {
@@ -3338,6 +3477,18 @@ export function getInitialSeedHabits(
       lifeArea: 'Personality',
       habitType: 'replace_old',
       targetPerWeek: 5,
+      whenTime: '04:00 PM · Afternoon Reset',
+      durationMinutes: 15,
+      streakTargetDays: 14,
+      linkedGoalTopicId: 'topic-seed-1',
+      routineTasks: [
+        {
+          id: 'rt-seed-6a',
+          title: 'Record 5-minute vocal synthesis of today’s topic',
+          notes: 'Practice communicating clearly with everyone',
+          scheduledHour: 16,
+        },
+      ],
       completedDates: last365.filter((_, idx) => idx % 2 === 1 || idx >= 355),
     },
   ];
@@ -3991,6 +4142,134 @@ export function computeTaskBingoBoard(
     autoPunchCards,
     almostPunchCardTasks,
   };
+}
+
+// ============================================================================
+// Productive App Time-of-Day (Morning / Afternoon / Evening / Anytime) & 7-Day Ribbon
+// ============================================================================
+
+export type ProductiveTimeOfDay =
+  | 'morning'
+  | 'afternoon'
+  | 'evening'
+  | 'anytime';
+
+export type ProductiveTimeFilter = 'all' | ProductiveTimeOfDay;
+
+export const DEFAULT_HOUR_FOR_TIME_OF_DAY: Record<
+  ProductiveTimeOfDay,
+  number | undefined
+> = {
+  morning: 8,
+  afternoon: 14,
+  evening: 19,
+  anytime: undefined,
+};
+
+export function resolveTodoTimeOfDay(todo: TodoItem): ProductiveTimeOfDay {
+  if (typeof todo.scheduledHour === 'number') {
+    if (todo.scheduledHour >= 5 && todo.scheduledHour < 12) {
+      return 'morning';
+    }
+    if (todo.scheduledHour >= 12 && todo.scheduledHour < 17) {
+      return 'afternoon';
+    }
+    return 'evening';
+  }
+  const text = `${todo.title} ${todo.notes}`.toLowerCase();
+  if (text.includes('morning') || text.includes('breakfast') || text.includes('wake')) {
+    return 'morning';
+  }
+  if (text.includes('afternoon') || text.includes('lunch') || text.includes('midday')) {
+    return 'afternoon';
+  }
+  if (text.includes('evening') || text.includes('night') || text.includes('sleep')) {
+    return 'evening';
+  }
+  return 'anytime';
+}
+
+export function resolveHabitTimeOfDay(habit: HabitItem): ProductiveTimeOfDay {
+  const raw = (habit.whenTime ?? '').toLowerCase();
+  if (!raw) return 'anytime';
+  if (raw.includes('morning') || raw.includes('am')) {
+    return 'morning';
+  }
+  if (raw.includes('afternoon') || raw.includes('midday') || raw.includes('noon')) {
+    return 'afternoon';
+  }
+  if (raw.includes('evening') || raw.includes('night') || raw.includes('bed')) {
+    return 'evening';
+  }
+  const hourMatch = raw.match(/(\d{1,2}):\d{2}/);
+  if (hourMatch) {
+    const hr = Number(hourMatch[1]);
+    if (hr >= 5 && hr < 12) return 'morning';
+    if (hr >= 12 && hr < 17) return 'afternoon';
+    return 'evening';
+  }
+  return 'anytime';
+}
+
+export interface ProductiveWeekDayCell {
+  dateIso: string;
+  weekdayShort: string;
+  dayNumber: string;
+  monthShort: string;
+  isToday: boolean;
+  completedCount: number;
+  totalCount: number;
+  completionRatio: number;
+}
+
+export function buildProductiveWeekRibbon(
+  todayIso: string,
+  todos: TodoItem[],
+  habits: HabitItem[]
+): ProductiveWeekDayCell[] {
+  const offsets = [-3, -2, -1, 0, 1, 2, 3];
+  return offsets.map((offset) => {
+    const dateIso = offsetIsoDate(todayIso, offset);
+    const parsed = new Date(`${dateIso}T12:00:00`);
+    const weekdayShort = parsed.toLocaleDateString('en-US', {
+      weekday: 'short',
+    });
+    const dayNumber = String(parsed.getDate()).padStart(2, '0');
+    const monthShort = parsed.toLocaleDateString('en-US', {
+      month: 'short',
+    });
+
+    const habitsDone = habits.filter((h) =>
+      h.completedDates.includes(dateIso)
+    ).length;
+    const totalHabits = habits.length;
+
+    const tasksForDay = todos.filter(
+      (t) =>
+        t.dueDate === dateIso ||
+        (t.completedDates && t.completedDates.includes(dateIso))
+    );
+    const tasksDone = tasksForDay.filter(
+      (t) =>
+        (dateIso === todayIso && t.completed) ||
+        (t.completedDates && t.completedDates.includes(dateIso))
+    ).length;
+
+    const completedCount = habitsDone + tasksDone;
+    const totalCount = Math.max(1, totalHabits + tasksForDay.length);
+    const completionRatio = Math.min(1, completedCount / totalCount);
+
+    return {
+      dateIso,
+      weekdayShort,
+      dayNumber,
+      monthShort,
+      isToday: dateIso === todayIso,
+      completedCount,
+      totalCount,
+      completionRatio,
+    };
+  });
 }
 
 

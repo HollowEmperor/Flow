@@ -213,15 +213,19 @@ export const TaskRow: React.FC<TaskRowProps> = ({
               ? `Mark "${todo.title}" as incomplete`
               : `Mark "${todo.title}" as completed`
           }
-          className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors cursor-pointer ${
-            todo.completed
-              ? 'bg-emerald-600 border-emerald-600 text-white'
-              : 'border-slate-300 hover:border-slate-500 bg-white'
-          }`}
+          className="-ml-1.5 -mt-1 min-w-[40px] min-h-[40px] flex items-center justify-center shrink-0 cursor-pointer group/check"
         >
-          {todo.completed && (
-            <Check className="w-3.5 h-3.5 stroke-[2.5]" aria-hidden="true" />
-          )}
+          <span
+            className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-transform duration-150 ${
+              todo.completed
+                ? 'bg-emerald-600 border-emerald-600 text-white scale-100'
+                : 'border-slate-300 group-hover/check:border-emerald-600 bg-white group-active/check:scale-95'
+            }`}
+          >
+            {todo.completed && (
+              <Check className="w-3.5 h-3.5 stroke-[2.75]" aria-hidden="true" />
+            )}
+          </span>
         </button>
 
         <div className="flex-1 min-w-0">
@@ -326,7 +330,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`text-sm font-medium leading-snug break-words ${
+                  className={`text-sm font-semibold leading-snug break-words ${
                     todo.completed
                       ? 'line-through text-slate-400'
                       : 'text-slate-900'
@@ -335,22 +339,8 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                   {todo.title}
                 </span>
 
-                {/* Scheduled Hour Badge when task is placed in Side Hourly Calendar */}
-                {todo.scheduledHour !== undefined && (
-                  <span
-                    data-testid={`task-scheduled-badge-${todo.id}`}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono tabular-nums font-semibold bg-blue-50 text-blue-800 border border-blue-200 shrink-0"
-                  >
-                    <Clock
-                      className="w-3 h-3 text-blue-600"
-                      aria-hidden="true"
-                    />
-                    <span>{formatHourSlotLabel(todo.scheduledHour)}</span>
-                  </span>
-                )}
-
-                {/* Automatic Punch Card Badge when task is done > 3 times (4+ days) */}
-                {hasAutoPunchCard ? (
+                {/* Interactive Punch Card Button when task is done > 3 times (4+ days) */}
+                {hasAutoPunchCard && (
                   <button
                     type="button"
                     data-testid={`task-punch-card-badge-${todo.id}`}
@@ -358,7 +348,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                       onOpenBingoPunchCards && onOpenBingoPunchCards()
                     }
                     title={`Done ${daysDoneCount} days (>3 times) — Auto Punch Card minted! Click to view Punch Card`}
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono tabular-nums font-bold bg-purple-100 text-purple-950 border border-purple-300 hover:bg-purple-200 shrink-0 cursor-pointer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono tabular-nums font-semibold bg-purple-50 text-purple-900 border border-purple-200 hover:bg-purple-100 shrink-0 whitespace-nowrap cursor-pointer"
                   >
                     <Ticket
                       className="w-3 h-3 text-purple-700"
@@ -366,24 +356,6 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                     />
                     <span>Punch Card · {daysDoneCount}d done</span>
                   </button>
-                ) : (
-                  daysDoneCount > 0 && (
-                    <span
-                      data-testid={`streak-badge-${todo.id}`}
-                      title={`Done ${daysDoneCount} ${
-                        daysDoneCount === 1 ? 'day' : 'days'
-                      } — do ${4 - daysDoneCount} more ${
-                        4 - daysDoneCount === 1 ? 'time' : 'times'
-                      } (>3) to auto-mint a Punch Card!`}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-mono tabular-nums font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0"
-                    >
-                      <Flame
-                        className="w-3 h-3 text-emerald-600 fill-emerald-500"
-                        aria-hidden="true"
-                      />
-                      <span>{daysDoneCount}/4d to Punch Card</span>
-                    </span>
-                  )
                 )}
 
                 {onPunchTaskDay && (
@@ -392,7 +364,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                     data-testid={`task-row-punch-day-${todo.id}`}
                     onClick={() => onPunchTaskDay(todo.id)}
                     title={`Log +1 completed day on "${todo.title}" (auto-creates Punch Card once > 3 days)`}
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-purple-50 hover:bg-purple-100 text-purple-800 hover:text-purple-950 border border-purple-200 hover:border-purple-300 transition-colors cursor-pointer shrink-0"
+                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md text-[11px] font-mono tabular-nums font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
                   >
                     <Plus className="w-2.5 h-2.5" aria-hidden="true" />
                     <span>1d</span>
@@ -410,7 +382,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                 </p>
               )}
 
-              {/* Unboxed metadata with typographic separators */}
+              {/* Unboxed metadata with typographic separators (Zero-Pill Discipline) */}
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
                 <span className="font-medium text-slate-700">
                   {todo.category}
@@ -423,6 +395,19 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                 >
                   {priorityMeta.label}
                 </span>
+
+                {todo.scheduledHour !== undefined && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span
+                      data-testid={`task-scheduled-badge-${todo.id}`}
+                      className="font-mono tabular-nums font-semibold text-blue-700"
+                    >
+                      {formatHourSlotLabel(todo.scheduledHour)}
+                    </span>
+                  </>
+                )}
+
                 <span aria-hidden="true">·</span>
                 <span
                   className={`font-mono tabular-nums ${
@@ -439,6 +424,23 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                       ? 'Due Today'
                       : `Due ${todo.dueDate}`}
                 </span>
+
+                {!hasAutoPunchCard && daysDoneCount > 0 && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span
+                      data-testid={`streak-badge-${todo.id}`}
+                      title={`Done ${daysDoneCount} ${
+                        daysDoneCount === 1 ? 'day' : 'days'
+                      } — do ${4 - daysDoneCount} more ${
+                        4 - daysDoneCount === 1 ? 'time' : 'times'
+                      } (>3) to auto-mint a Punch Card!`}
+                      className="font-mono tabular-nums font-medium text-emerald-700"
+                    >
+                      {daysDoneCount}/4d to Punch Card
+                    </span>
+                  </>
+                )}
 
                 {totalSubtasks > 0 && (
                   <>

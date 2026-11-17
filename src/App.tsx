@@ -20,13 +20,16 @@ import {
   BookText,
   Flame,
   Clock,
-  Sparkles,
+  BarChart3,
+  Award,
   Kanban,
   GitCommitHorizontal,
   PenTool,
   Grid3X3,
   Archive,
   Brain,
+  Compass,
+  MapPin,
 } from 'lucide-react';
 import {
   AppLayoutVersion,
@@ -133,6 +136,11 @@ import { CadenceReviewWidget } from './components/CadenceReviewWidget';
 import { BacklogDashboard } from './components/BacklogDashboard';
 import { AffirmationDashboard } from './components/AffirmationDashboard';
 import { ReflectDashboard } from './components/ReflectDashboard';
+import { VisionDashboard } from './components/VisionDashboard';
+import { GoogleMapsDashboard } from './components/GoogleMapsDashboard';
+import { RealTimeFlipClock } from './components/RealTimeFlipClock';
+import { ProductiveDayFeed } from './components/ProductiveDayFeed';
+import { ProductiveInfographicsPanel } from './components/ProductiveInfographicsPanel';
 
 const STORAGE_KEY = 'focusflow_todos_v5';
 const BRAINDUMP_STORAGE_KEY = 'focusflow_braindump_v2';
@@ -326,6 +334,14 @@ export default function App() {
     null
   );
   const [celebration, setCelebration] = useState<CelebrationEvent | null>(null);
+  const [gmpQuotaExceeded, setGmpQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const handleQuotaExceeded = () => setGmpQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+    return () =>
+      window.removeEventListener('gmp-quota-exceeded', handleQuotaExceeded);
+  }, []);
 
   // Daily Calendar Tear-Off Startup State (Plays Automatically Only Once Per Day)
   const todayIso = useMemo(() => getTodayIsoDate(), []);
@@ -853,6 +869,9 @@ export default function App() {
     habitType: HabitCategoryType;
     oldHabitToReplace?: string;
     targetPerWeek: number;
+    whenTime?: string;
+    durationMinutes?: number;
+    streakTargetDays?: number;
   }) => {
     const created = createHabitItem(params);
     setHabits((prev) => [created, ...prev]);
@@ -883,125 +902,209 @@ export default function App() {
     [todos, todayIso]
   );
 
-  const leftRailNavItems: Array<{
-    id: WorkspaceTab;
-    label: string;
-    badge?: number;
-    icon: React.ReactNode;
+  const leftRailGroups: Array<{
+    groupLabel: string;
+    items: Array<{
+      id: WorkspaceTab;
+      label: string;
+      badge?: number;
+      icon: React.ReactNode;
+    }>;
   }> = [
     {
-      id: 'tasks',
-      label: 'Tasks',
-      badge: stats.active,
-      icon: <ListTodo className="w-4 h-4 shrink-0" aria-hidden="true" />,
+      groupLabel: '01. Daily Rhythm',
+      items: [
+        {
+          id: 'tasks',
+          label: 'Today (Time of Day)',
+          badge: stats.active,
+          icon: <ListTodo className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'habits',
+          label: 'Habits & Routines',
+          badge: habits.length,
+          icon: <Flame className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'calendar',
+          label: 'Calendar',
+          icon: <CalendarIcon className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'matrix',
+          label: 'Eisenhower Matrix',
+          icon: <LayoutGrid className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'backlog',
+          label: 'Backlog Queue',
+          badge: backlogCount,
+          icon: <Archive className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+      ],
     },
     {
-      id: 'backlog',
-      label: 'Backlog Dashboard',
-      badge: backlogCount,
-      icon: <Archive className="w-4 h-4 shrink-0" aria-hidden="true" />,
+      groupLabel: '02. Focus & Time',
+      items: [
+        {
+          id: 'flipclock',
+          label: 'Real-Time Flip Clock',
+          icon: <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'timer',
+          label: 'DoteTimer Focus',
+          badge: focusLogs.length,
+          icon: <Timer className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'bingo',
+          label: 'Bingo & Punch Cards',
+          badge: autoPunchCardsCount,
+          icon: <Grid3X3 className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+      ],
     },
     {
-      id: 'affirmations',
-      label: 'Affirmation Dashboard',
-      icon: <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />,
+      groupLabel: '03. Strategy & Mastery',
+      items: [
+        {
+          id: 'visions',
+          label: 'Vision Dashboard',
+          icon: <Compass className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'goals',
+          label: 'Goals (30Y & 5Y→1W)',
+          icon: <Target className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'topics',
+          label: 'Topic Dashboard',
+          badge: topics.length,
+          icon: <BookOpen className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'plan',
+          label: 'Plan Canvas',
+          icon: <PenTool className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'maps',
+          label: 'Google Maps Studio',
+          icon: <MapPin className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+      ],
     },
     {
-      id: 'reflect',
-      label: 'Reflect Dashboard',
-      icon: <Brain className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'bingo',
-      label: 'Bingo & Punch Cards',
-      badge: autoPunchCardsCount,
-      icon: <Grid3X3 className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'plan',
-      label: 'Plan Dashboard',
-      icon: <PenTool className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'habits',
-      label: 'Habit Heatmap',
-      badge: habits.length,
-      icon: <Flame className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'matrix',
-      label: 'Eisenhower Matrix',
-      icon: <LayoutGrid className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'network',
-      label: 'Relationships & Orgs',
-      badge: contacts.length + organizations.length,
-      icon: <Users className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'journal',
-      label: 'Journal Dashboard',
-      badge: journalEntries.length,
-      icon: <BookText className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'timer',
-      label: 'DoteTimer Focus',
-      badge: focusLogs.length,
-      icon: <Timer className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'goals',
-      label: 'Goals (30Y & 5Y→1W)',
-      icon: <Target className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'topics',
-      label: 'Topic Dashboard',
-      badge: topics.length,
-      icon: <BookOpen className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'calendar',
-      label: 'Calendar',
-      icon: <CalendarIcon className="w-4 h-4 shrink-0" aria-hidden="true" />,
-    },
-    {
-      id: 'braindump',
-      label: 'Brain Dump',
-      badge: brainDumpQueueCount,
-      icon: <Layers className="w-4 h-4 shrink-0" aria-hidden="true" />,
+      groupLabel: '04. Mind & Network',
+      items: [
+        {
+          id: 'braindump',
+          label: 'Brain Dump',
+          badge: brainDumpQueueCount,
+          icon: <Layers className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'reflect',
+          label: 'Reflect Dashboard',
+          icon: <Brain className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'journal',
+          label: 'Journal & Star Jar',
+          badge: journalEntries.length,
+          icon: <BookText className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'affirmations',
+          label: 'Affirmations',
+          icon: <Award className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+        {
+          id: 'network',
+          label: 'Relationships & Orgs',
+          badge: contacts.length + organizations.length,
+          icon: <Users className="w-4 h-4 shrink-0" aria-hidden="true" />,
+        },
+      ],
     },
   ];
 
-  // Borderless Full-Viewport Tablet / Desktop Version with Left Navigation Bar (60-30-10 Neutral + Solid Green · Blue · Purple)
+  // Borderless Full-Viewport Tablet / Desktop Version with 3-Zone Top Bar + Left Navigation Rail
   const renderTabletDesktopVersion = () => (
     <div
       data-testid="tablet-desktop-version"
       className="h-screen min-h-[680px] w-full bg-slate-50 flex flex-col overflow-hidden"
     >
+      {/* 3-Zone Top Bar Contract: [Zone 1: Brand Wordmark] — [Zone 2: 5 Single-Line Nav Links] — [Zone 3: 1 Primary Action] */}
+      <header className="flex items-center justify-between gap-8 px-6 py-3 bg-white border-b border-slate-200 shrink-0">
+        <button
+          type="button"
+          onClick={() => setActiveView('tasks')}
+          className="text-base font-bold tracking-tight text-slate-900 font-display whitespace-nowrap shrink-0 cursor-pointer"
+        >
+          FocusFlow
+        </button>
+
+        <nav
+          aria-label="Primary studio navigation"
+          className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-600"
+        >
+          {(
+            [
+              { id: 'tasks', label: 'Today' },
+              { id: 'habits', label: 'Habits' },
+              { id: 'timer', label: 'Focus Studio' },
+              { id: 'goals', label: 'Goals & Topics' },
+              { id: 'visions', label: 'Vision & Reflect' },
+            ] as const
+          ).map((navLink) => {
+            const isCurrent = activeView === navLink.id;
+            return (
+              <button
+                key={navLink.id}
+                type="button"
+                onClick={() => setActiveView(navLink.id)}
+                className={`py-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer border-b-2 ${
+                  isCurrent
+                    ? 'text-slate-900 font-semibold border-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 border-transparent hover:border-slate-300'
+                }`}
+              >
+                {navLink.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="flex items-center shrink-0">
+          <button
+            type="button"
+            onClick={focusQuickAdd}
+            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            New Daily Action
+          </button>
+        </div>
+      </header>
+
       {/* Tablet Body: Left Navigation Bar + Scrollable Main Workspace */}
       <div className="flex-1 min-h-0 flex flex-row overflow-hidden">
         {/* Left Navigation Bar for Tablet & Desktop Version */}
         <aside
           aria-label="Tablet and desktop left navigation bar"
           data-testid="tablet-left-nav"
-          className="w-56 sm:w-60 h-full shrink-0 bg-white border-r border-slate-200 p-3 flex flex-col justify-between overflow-y-auto"
+          className="w-60 sm:w-64 h-full shrink-0 bg-white border-r border-slate-200 p-3.5 flex flex-col justify-between overflow-y-auto"
         >
-          <div className="space-y-3">
-            {/* Workspace Header + View Switcher Icons Beside "Workspace" Text */}
-            <div className="px-1.5 py-1 flex items-center justify-between gap-1.5 border-b border-slate-100 pb-2.5">
-              <div className="min-w-0">
-                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-900 font-display block truncate">
-                  Workspace
-                </span>
-                <p className="text-[10px] text-slate-500 font-medium truncate">
-                  FocusFlow OS
-                </p>
-              </div>
+          <div className="space-y-4">
+            {/* Viewport Mode Switcher Bar */}
+            <div className="px-1 py-1 flex items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                Viewport Mode
+              </span>
 
-              {/* View Switcher Icons Beside Workspace Text */}
               <div
                 role="group"
                 aria-label="Change workspace view mode"
@@ -1068,60 +1171,71 @@ export default function App() {
               </div>
             </div>
 
-            {/* Left Navigation Links (Semantic Color Grouping: Green=Action/Habits, Blue=Schedule/Structure, Purple=Vision/Reflection) */}
-            <nav aria-label="Left workspace navigation" className="space-y-0.5">
-              {leftRailNavItems.map((item) => {
-                const isActive = activeView === item.id;
-                const activeSolidBg =
-                  item.id === 'tasks' ||
-                  item.id === 'habits' ||
-                  item.id === 'timer' ||
-                  item.id === 'bingo'
-                    ? 'bg-emerald-600 text-white'
-                    : item.id === 'backlog' ||
-                        item.id === 'calendar' ||
-                        item.id === 'plan' ||
-                        item.id === 'matrix' ||
-                        item.id === 'network'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-purple-700 text-white';
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    data-testid={`nav-tab-${item.id}`}
-                    onClick={() => setActiveView(item.id)}
-                    aria-current={isActive ? 'page' : undefined}
-                    className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer whitespace-nowrap ${
-                      isActive
-                        ? `${activeSolidBg} shadow-2xs`
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 truncate">
-                      {item.icon}
-                      <span className="truncate">{item.label}</span>
-                    </span>
-                    {item.badge !== undefined && (
-                      <span
-                        className={`font-mono tabular-nums text-[10px] px-1.5 py-0.5 rounded-md ${
-                          isActive
-                            ? 'bg-white/20 text-white font-bold'
-                            : 'bg-slate-100 text-slate-700'
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+            {/* Grouped Left Navigation Links (4 Curated Editorial Sections) */}
+            <nav aria-label="Left workspace navigation" className="space-y-3.5">
+              {leftRailGroups.map((group) => (
+                <div key={group.groupLabel} className="space-y-1">
+                  <div className="px-2 text-[11px] font-semibold text-slate-400">
+                    {group.groupLabel}
+                  </div>
+                  <div className="space-y-0.5">
+                    {group.items.map((item) => {
+                      const isActive = activeView === item.id;
+                      const activeSolidBg =
+                        item.id === 'flipclock' ||
+                        item.id === 'tasks' ||
+                        item.id === 'habits' ||
+                        item.id === 'timer' ||
+                        item.id === 'bingo'
+                          ? 'bg-emerald-600 text-white'
+                          : item.id === 'backlog' ||
+                              item.id === 'calendar' ||
+                              item.id === 'plan' ||
+                              item.id === 'matrix' ||
+                              item.id === 'network' ||
+                              item.id === 'maps'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-purple-700 text-white';
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          data-testid={`nav-tab-${item.id}`}
+                          onClick={() => setActiveView(item.id)}
+                          aria-current={isActive ? 'page' : undefined}
+                          className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+                            isActive
+                              ? `${activeSolidBg} shadow-2xs`
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 truncate">
+                            {item.icon}
+                            <span className="truncate">{item.label}</span>
+                          </span>
+                          {item.badge !== undefined && (
+                            <span
+                              className={`font-mono tabular-nums text-[10px] ${
+                                isActive
+                                  ? 'text-white/90 font-bold'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </nav>
 
             {/* 7 Life Areas Quick Filter in Left Rail */}
             <div className="pt-2 border-t border-slate-200 space-y-1">
-              <div className="px-2 text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                7 Life Focus Areas
+              <div className="px-2 text-[11px] font-semibold text-slate-400">
+                05. Life Focus Areas
               </div>
               <div className="space-y-0.5">
                 {CATEGORIES_WITH_ALL.map((area) => {
@@ -1225,12 +1339,38 @@ export default function App() {
             {/* Main Active Workspace */}
             <section
               className={
-                activeView === 'plan'
+                activeView === 'plan' ||
+                activeView === 'maps' ||
+                activeView === 'visions'
                   ? '@3xl:col-span-12 space-y-4 min-w-0'
                   : '@3xl:col-span-7 space-y-4 min-w-0'
               }
             >
-              {activeView === 'plan' ? (
+              {activeView === 'flipclock' ? (
+                <RealTimeFlipClock
+                  todos={todos}
+                  onCompleteTask={handleToggleTodo}
+                  onOpenFocusTimer={() => setActiveView('timer')}
+                />
+              ) : activeView === 'visions' ? (
+                <VisionDashboard
+                  topics={topics}
+                  roadmaps={goalRoadmaps}
+                  habits={habits}
+                  todos={todos}
+                  brainDumpItems={brainDumpItems}
+                  onNavigateTab={(tab) => setActiveView(tab)}
+                  onDeployRoutineTaskToTodo={handleAddTodo}
+                  onToggleTodo={handleToggleTodo}
+                />
+              ) : activeView === 'maps' ? (
+                <GoogleMapsDashboard
+                  todos={todos}
+                  habits={habits}
+                  topics={topics}
+                  onAddTodoWithLocation={handleAddTodo}
+                />
+              ) : activeView === 'plan' ? (
                 <ExcalidrawPlanDashboard
                   todos={todos}
                   topics={topics}
@@ -1274,8 +1414,10 @@ export default function App() {
               ) : activeView === 'habits' ? (
                 <HabitDashboard
                   habits={habits}
+                  todos={todos}
                   onToggleHabitDate={handleToggleHabitDate}
                   onAddHabit={handleAddHabit}
+                  onDeployRoutineTaskToTodo={handleAddTodo}
                 />
               ) : activeView === 'matrix' ? (
                 <EisenhowerMatrix
@@ -1376,19 +1518,17 @@ export default function App() {
                 />
               ) : (
                 <>
-                  {/* Page Header, View Switcher (List / Kanban / Timeline), and Right-Side Hourly Calendar Toggle */}
+                  {/* Page Header & Utility Controls */}
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-purple-950 font-display">
+                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-display text-balance">
                         {categoryFilter === 'All'
-                          ? 'All Life Areas'
-                          : `${categoryFilter} Tasks`}
+                          ? 'Today — Morning, Afternoon & Evening Rhythm'
+                          : `${categoryFilter} — Daily Rhythm`}
                       </h1>
-                      <p className="text-xs sm:text-sm text-slate-600 mt-0.5">
-                        Pull any task card using its drag handle (⋮⋮) into the{' '}
-                        <strong className="text-blue-700">Side Hourly Calendar</strong> on the right to
-                        schedule it, or punch tasks &gt;3 days for an{' '}
-                        <strong className="text-purple-700">Auto Punch Card</strong>.
+                      <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                        Complete habits and tasks chronologically by time of day, or drag any row handle (⋮⋮) into the{' '}
+                        <strong className="text-blue-700 font-semibold">Side Hourly Calendar</strong>.
                       </p>
                     </div>
 
@@ -1406,13 +1546,13 @@ export default function App() {
                         className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                           taskRightPanelMode === 'hourly_calendar'
                             ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                            : 'bg-white text-purple-900 border-purple-200 hover:bg-purple-50'
+                            : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
                         <Clock className="w-3.5 h-3.5" aria-hidden="true" />
                         <span>
                           {taskRightPanelMode === 'hourly_calendar'
-                            ? 'Show Radar & Wheel'
+                            ? 'Show Stats & Radar'
                             : 'Open Hourly Calendar'}
                         </span>
                       </button>
@@ -1444,11 +1584,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Daily / Weekly / Monthly Check-In Questions Widget */}
-                  <CadenceReviewWidget
-                    onOpenEisenhowerMatrix={() => setActiveView('matrix')}
-                  />
-
                   {/* Quick Add Task Bar */}
                   <QuickAddTask
                     defaultCategory={
@@ -1457,26 +1592,19 @@ export default function App() {
                     onAdd={handleAddTodo}
                   />
 
-                  {/* MemoSpike Task Spindle Animation in Task Dashboard */}
-                  <MemoSpikeWidget
-                    todos={todos}
-                    activeCategory={categoryFilter}
-                    onSpikeTask={handleToggleTodo}
-                  />
-
-                  {/* Task View Switcher (List View / Kanban View / Timeline View) + Status & Search Toolbar */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-2.5 space-y-2.5">
+                  {/* Task View Switcher (Time of Day / List View / Kanban View / Timeline View) + Status & Search Toolbar */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-3 space-y-2.5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div
                         role="group"
                         aria-label="Select task display view mode"
-                        className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg"
+                        className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl"
                       >
                         <button
                           type="button"
                           data-testid="task-view-mode-list"
                           onClick={() => setTaskViewMode('list')}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                             taskViewMode === 'list'
                               ? 'bg-slate-900 text-white shadow-2xs'
                               : 'text-slate-600 hover:text-slate-900'
@@ -1486,26 +1614,26 @@ export default function App() {
                             className="w-3.5 h-3.5"
                             aria-hidden="true"
                           />
-                          <span>List View</span>
+                          <span>Time of Day &amp; List</span>
                         </button>
                         <button
                           type="button"
                           data-testid="task-view-mode-kanban"
                           onClick={() => setTaskViewMode('kanban')}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                             taskViewMode === 'kanban'
                               ? 'bg-slate-900 text-white shadow-2xs'
                               : 'text-slate-600 hover:text-slate-900'
                           }`}
                         >
                           <Kanban className="w-3.5 h-3.5" aria-hidden="true" />
-                          <span>Kanban View</span>
+                          <span>Kanban Board</span>
                         </button>
                         <button
                           type="button"
                           data-testid="task-view-mode-timeline"
                           onClick={() => setTaskViewMode('timeline')}
-                          className={`px-2.5 py-1 text-xs font-semibold rounded-md flex items-center gap-1.5 transition-colors cursor-pointer ${
+                          className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                             taskViewMode === 'timeline'
                               ? 'bg-slate-900 text-white shadow-2xs'
                               : 'text-slate-600 hover:text-slate-900'
@@ -1515,14 +1643,14 @@ export default function App() {
                             className="w-3.5 h-3.5"
                             aria-hidden="true"
                           />
-                          <span>Timeline View</span>
+                          <span>Timeline</span>
                         </button>
                       </div>
 
                       <div
                         role="group"
                         aria-label="Filter tasks by completion status"
-                        className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg"
+                        className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl"
                       >
                         {(
                           [
@@ -1538,7 +1666,7 @@ export default function App() {
                             key={tab.id}
                             type="button"
                             onClick={() => setStatusFilter(tab.id)}
-                            className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                            className={`px-2.5 py-1 text-xs font-medium rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                               statusFilter === tab.id
                                 ? 'bg-white text-slate-900 shadow-xs'
                                 : 'text-slate-600 hover:text-slate-900'
@@ -1564,7 +1692,7 @@ export default function App() {
                           type="search"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search tasks..."
+                          placeholder="Search tasks & habits..."
                           className="w-full pl-8 pr-2.5 py-1.5 text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-slate-400"
                         />
                       </div>
@@ -1593,36 +1721,37 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Active Task Display Mode: List View, Kanban View, or Timeline View */}
+                  {/* Active Task Display Mode: Productive Time-of-Day & List View, Kanban View, or Timeline View */}
                   {taskViewMode === 'list' ? (
-                    <div
-                      data-testid="tasks-list-view"
-                      className="bg-white border border-slate-200 rounded-xl overflow-hidden"
-                    >
-                      {visibleTodos.length > 0 ? (
-                        <div divide-y="true" role="list" aria-label="Task list">
-                          {visibleTodos.map((todo) => (
-                            <TaskRow
-                              key={todo.id}
-                              todo={todo}
-                              isFocused={selectedFocusTaskId === todo.id}
-                              onToggle={handleToggleTodo}
-                              onDelete={handleDeleteTodo}
-                              onUpdate={handleUpdateTodo}
-                              onAddSubtask={handleAddSubtask}
-                              onToggleSubtask={handleToggleSubtask}
-                              onDeleteSubtask={handleDeleteSubtask}
-                              onPunchTaskDay={handlePunchTaskDay}
-                              onOpenBingoPunchCards={() =>
-                                setActiveView('bingo')
-                              }
-                              onDragStartTask={handleDragStartTask}
-                              onDragEndTask={handleDragEndTask}
-                            />
-                          ))}
-                        </div>
+                    <div data-testid="tasks-list-view" className="space-y-4">
+                      {visibleTodos.length > 0 || habits.length > 0 ? (
+                        <ProductiveDayFeed
+                          todayIso={todayIso}
+                          todos={visibleTodos}
+                          habits={
+                            categoryFilter === 'All'
+                              ? habits
+                              : habits.filter(
+                                  (h) => h.lifeArea === categoryFilter
+                                )
+                          }
+                          selectedFocusTaskId={selectedFocusTaskId}
+                          onToggleTodo={handleToggleTodo}
+                          onDeleteTodo={handleDeleteTodo}
+                          onUpdateTodo={handleUpdateTodo}
+                          onAddSubtask={handleAddSubtask}
+                          onToggleSubtask={handleToggleSubtask}
+                          onDeleteSubtask={handleDeleteSubtask}
+                          onAssignScheduledHour={handleAssignScheduledHour}
+                          onToggleHabitDate={handleToggleHabitDate}
+                          onDeployRoutineTaskToTodo={handleAddTodo}
+                          onPunchTaskDay={handlePunchTaskDay}
+                          onOpenBingoPunchCards={() => setActiveView('bingo')}
+                          onDragStartTask={handleDragStartTask}
+                          onDragEndTask={handleDragEndTask}
+                        />
                       ) : (
-                        <div className="py-12 px-6 text-center">
+                        <div className="bg-white border border-slate-200 rounded-2xl py-12 px-6 text-center">
                           <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center mx-auto mb-3">
                             {todos.length === 0 ? (
                               <ListTodo
@@ -1660,12 +1789,34 @@ export default function App() {
                       onDragEndTask={handleDragEndTask}
                     />
                   )}
+
+                  {/* Secondary Studio Instruments (Real-Time Flip Clock · MemoSpike Completed Spindle · Cadence Check-In) */}
+                  <div className="pt-2 space-y-4">
+                    <RealTimeFlipClock
+                      todos={todos}
+                      defaultCompact={true}
+                      onCompleteTask={handleToggleTodo}
+                      onOpenFocusTimer={() => setActiveView('timer')}
+                    />
+
+                    <MemoSpikeWidget
+                      todos={todos}
+                      activeCategory={categoryFilter}
+                      onSpikeTask={handleToggleTodo}
+                    />
+
+                    <CadenceReviewWidget
+                      onOpenEisenhowerMatrix={() => setActiveView('matrix')}
+                    />
+                  </div>
                 </>
               )}
             </section>
 
             {/* Right Column: Side Hourly Calendar (Default Open for Drag-and-Drop Card Scheduling) OR Radar Chart + Task Wheel Picker */}
-            {activeView !== 'plan' && (
+            {activeView !== 'plan' &&
+              activeView !== 'maps' &&
+              activeView !== 'visions' && (
               <aside className="@3xl:col-span-5 space-y-4 items-start">
                 {/* Right Panel Mode Switcher Strip */}
                 <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-between gap-1 shadow-2xs">
@@ -1688,12 +1839,12 @@ export default function App() {
                     onClick={() => setTaskRightPanelMode('insights')}
                     className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
                       taskRightPanelMode === 'insights'
-                        ? 'bg-purple-700 text-white shadow-2xs'
+                        ? 'bg-slate-900 text-white shadow-2xs'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                     }`}
                   >
-                    <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>Radar &amp; Wheel</span>
+                    <BarChart3 className="w-3.5 h-3.5" aria-hidden="true" />
+                    <span>Stats, Radar &amp; Wheel</span>
                   </button>
                 </div>
 
@@ -1708,22 +1859,33 @@ export default function App() {
                     onCloseHourlyView={() => setTaskRightPanelMode('insights')}
                   />
                 ) : (
-                  <div className="grid grid-cols-1 @xl:grid-cols-2 @3xl:grid-cols-1 gap-5 items-start">
-                    <LifeRadarChart
+                  <div className="space-y-4 items-start">
+                    <ProductiveInfographicsPanel
+                      todayIso={todayIso}
                       todos={todos}
+                      habits={habits}
                       activeCategory={categoryFilter}
-                      baseOverrides={radarBaseOverrides}
                       onSelectCategory={handleRadarSelectCategory}
-                      onAdjustBaseScore={handleAdjustBaseScore}
+                      onToggleHabitDate={handleToggleHabitDate}
                     />
 
-                    <TaskWheelPicker
-                      todos={todos}
-                      activeCategory={categoryFilter}
-                      selectedFocusTaskId={selectedFocusTaskId}
-                      onSelectFocusTask={setSelectedFocusTaskId}
-                      onCompleteTask={handleToggleTodo}
-                    />
+                    <div className="grid grid-cols-1 @xl:grid-cols-2 @3xl:grid-cols-1 gap-4 items-start">
+                      <LifeRadarChart
+                        todos={todos}
+                        activeCategory={categoryFilter}
+                        baseOverrides={radarBaseOverrides}
+                        onSelectCategory={handleRadarSelectCategory}
+                        onAdjustBaseScore={handleAdjustBaseScore}
+                      />
+
+                      <TaskWheelPicker
+                        todos={todos}
+                        activeCategory={categoryFilter}
+                        selectedFocusTaskId={selectedFocusTaskId}
+                        onSelectFocusTask={setSelectedFocusTaskId}
+                        onCompleteTask={handleToggleTodo}
+                      />
+                    </div>
                   </div>
                 )}
               </aside>
@@ -1797,6 +1959,22 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+      {gmpQuotaExceeded && (
+        <div className="bg-amber-50 border-b border-amber-200 text-amber-900 px-4 py-2.5 text-xs md:text-sm text-center sticky top-0 z-50 shadow-sm">
+          <span>
+            Google Maps Platform quota reached. If you are the app owner, visit{' '}
+            <a
+              href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-semibold text-amber-950 hover:text-amber-800"
+            >
+              maps developer site
+            </a>{' '}
+            for instructions to update your account.
+          </span>
+        </div>
+      )}
       <ConfettiOverlay
         celebration={celebration}
         onDismiss={() => setCelebration(null)}

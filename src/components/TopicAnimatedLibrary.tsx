@@ -50,6 +50,7 @@ interface SpinePalette {
   spineBorder: string;
   edgeColor: string;
   bandColor: string;
+  glowColor: string;
   badgeBg: string;
   badgeText: string;
 }
@@ -61,6 +62,7 @@ const SPINE_PALETTES: SpinePalette[] = [
     spineBorder: '#7C3AED',
     edgeColor: '#2E1065',
     bandColor: '#34D399',
+    glowColor: '#8B5CF6',
     badgeBg: '#2E1065',
     badgeText: '#DDD6FE',
   },
@@ -69,6 +71,7 @@ const SPINE_PALETTES: SpinePalette[] = [
     spineBorder: '#3B82F6',
     edgeColor: '#172554',
     bandColor: '#60A5FA',
+    glowColor: '#3B82F6',
     badgeBg: '#172554',
     badgeText: '#DBEAFE',
   },
@@ -77,6 +80,7 @@ const SPINE_PALETTES: SpinePalette[] = [
     spineBorder: '#10B981',
     edgeColor: '#022C22',
     bandColor: '#A7F3D0',
+    glowColor: '#10B981',
     badgeBg: '#022C22',
     badgeText: '#D1FAE5',
   },
@@ -85,6 +89,7 @@ const SPINE_PALETTES: SpinePalette[] = [
     spineBorder: '#8B5CF6',
     edgeColor: '#3B0764',
     bandColor: '#93C5FD',
+    glowColor: '#A78BFA',
     badgeBg: '#3B0764',
     badgeText: '#F3E8FF',
   },
@@ -93,6 +98,7 @@ const SPINE_PALETTES: SpinePalette[] = [
     spineBorder: '#60A5FA',
     edgeColor: '#1E3A8A',
     bandColor: '#34D399',
+    glowColor: '#60A5FA',
     badgeBg: '#1E3A8A',
     badgeText: '#EFF6FF',
   },
@@ -101,6 +107,7 @@ const SPINE_PALETTES: SpinePalette[] = [
     spineBorder: '#34D399',
     edgeColor: '#064E3B',
     bandColor: '#C4B5FD',
+    glowColor: '#34D399',
     badgeBg: '#064E3B',
     badgeText: '#ECFDF5',
   },
@@ -147,7 +154,22 @@ export const TopicAnimatedLibrary: React.FC<TopicAnimatedLibraryProps> = ({
   const [resUrl, setResUrl] = useState('');
   const [isDraggingPdfOver, setIsDraggingPdfOver] = useState(false);
   const [justShelvedToast, setJustShelvedToast] = useState<string | null>(null);
+  const [tiltingBookIds, setTiltingBookIds] = useState<Record<string, boolean>>(
+    {}
+  );
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleToggleResourceWithTilt = (resourceId: string) => {
+    setTiltingBookIds((prev) => ({ ...prev, [resourceId]: true }));
+    onToggleResource(topic.id, resourceId);
+    window.setTimeout(() => {
+      setTiltingBookIds((prev) => {
+        const next = { ...prev };
+        delete next[resourceId];
+        return next;
+      });
+    }, 620);
+  };
 
   // Sync selected book when topic changes or when a new book is added
   const prevCountRef = useRef<number>(topic.resources.length);
@@ -444,8 +466,26 @@ export const TopicAnimatedLibrary: React.FC<TopicAnimatedLibraryProps> = ({
                 {topic.resources.map((res, idx) => {
                   const palette = SPINE_PALETTES[idx % SPINE_PALETTES.length];
                   const isSelected = selectedBook?.id === res.id;
+                  const isTilting = Boolean(tiltingBookIds[res.id]);
                   const heightPx = getBookHeightPx(res.title, idx);
                   const shortType = getSpineShortTypeLabel(res.type);
+
+                  // CSS custom properties smoothly transition colors when completion is toggled
+                  const activeSpineBg = res.completed
+                    ? '#047857'
+                    : palette.spineBg;
+                  const activeSpineBorder = res.completed
+                    ? '#10B981'
+                    : palette.spineBorder;
+                  const activeEdgeColor = res.completed
+                    ? '#022C22'
+                    : palette.edgeColor;
+                  const activeBandColor = res.completed
+                    ? '#6EE7B7'
+                    : palette.bandColor;
+                  const activeGlowColor = res.completed
+                    ? '#10B981'
+                    : palette.glowColor;
 
                   return (
                     <button
@@ -454,28 +494,32 @@ export const TopicAnimatedLibrary: React.FC<TopicAnimatedLibraryProps> = ({
                       role="listitem"
                       data-testid={`library-book-spine-${res.id}`}
                       onClick={() => setSelectedBookId(res.id)}
+                      onDoubleClick={() => handleToggleResourceWithTilt(res.id)}
                       aria-pressed={isSelected}
-                      aria-label={`${res.type} book spine: ${res.title}`}
-                      title={`${res.title} (${res.type}) — Click spine to inspect or open`}
+                      aria-label={`${res.type} book spine: ${res.title}${
+                        res.completed ? ' (Completed)' : ''
+                      }`}
+                      title={`${res.title} (${res.type}) — Hover for spine glow · Click to inspect · Click badge or double-click spine to toggle completion tilt`}
                       style={
                         {
                           height: `${heightPx}px`,
-                          backgroundColor: palette.spineBg,
-                          borderColor: palette.spineBorder,
-                          '--spine-edge-color': palette.edgeColor,
+                          '--spine-bg': activeSpineBg,
+                          '--spine-border': activeSpineBorder,
+                          '--spine-edge-color': activeEdgeColor,
+                          '--spine-band-color': activeBandColor,
+                          '--spine-glow-color': activeGlowColor,
                           animationDelay: `${Math.min(idx * 45, 240)}ms`,
                         } as React.CSSProperties
                       }
                       className={`css-library-book-spine ${
                         isSelected ? 'is-selected' : ''
+                      } ${res.completed ? 'is-completed' : ''} ${
+                        isTilting ? 'is-tilting-forward' : ''
                       } w-11 sm:w-12 shrink-0 rounded-t-[4px] rounded-b-[2px] border flex flex-col items-center justify-between py-2 px-1 text-white cursor-pointer select-none focus:outline-none`}
                     >
                       {/* Top Bookbinding Headcap & Resource Type Tag */}
                       <div className="w-full flex flex-col items-center gap-1 shrink-0">
-                        <span
-                          style={{ backgroundColor: palette.bandColor }}
-                          className="w-full h-[2px] rounded-full opacity-90"
-                        />
+                        <span className="css-spine-headband w-full h-[2px] rounded-full opacity-90" />
                         <span
                           style={{
                             backgroundColor: palette.badgeBg,
@@ -497,23 +541,29 @@ export const TopicAnimatedLibrary: React.FC<TopicAnimatedLibraryProps> = ({
                         </span>
                       </div>
 
-                      {/* Bottom Bookbinding Tailband & Call Number / Read Stamp */}
+                      {/* Bottom Bookbinding Tailband & Interactive Call Number / Read Stamp */}
                       <div className="w-full flex flex-col items-center gap-1 shrink-0">
                         <span
-                          className={`text-[9px] font-mono tabular-nums font-bold leading-none px-1 py-0.5 rounded-[2px] ${
+                          role="button"
+                          tabIndex={-1}
+                          data-testid={`library-spine-toggle-badge-${res.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBookId(res.id);
+                            handleToggleResourceWithTilt(res.id);
+                          }}
+                          title="Click to toggle completion and tilt spine forward"
+                          className={`text-[9px] font-mono tabular-nums font-bold leading-none px-1 py-0.5 rounded-[2px] transition-colors ${
                             res.completed
-                              ? 'bg-emerald-500 text-slate-950'
-                              : 'bg-black/25 text-slate-200'
+                              ? 'bg-emerald-400 text-slate-950'
+                              : 'bg-black/25 text-slate-200 hover:bg-white/25'
                           }`}
                         >
                           {res.completed
                             ? '✓'
                             : String(idx + 1).padStart(2, '0')}
                         </span>
-                        <span
-                          style={{ backgroundColor: palette.bandColor }}
-                          className="w-full h-[2px] rounded-full opacity-90"
-                        />
+                        <span className="css-spine-headband w-full h-[2px] rounded-full opacity-90" />
                       </div>
                     </button>
                   );
@@ -662,7 +712,7 @@ export const TopicAnimatedLibrary: React.FC<TopicAnimatedLibraryProps> = ({
                     type="button"
                     data-testid="library-toggle-complete-btn"
                     onClick={() =>
-                      onToggleResource(topic.id, selectedBook.id)
+                      handleToggleResourceWithTilt(selectedBook.id)
                     }
                     className={`py-2 px-3 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 border transition-colors cursor-pointer whitespace-nowrap ${
                       selectedBook.completed

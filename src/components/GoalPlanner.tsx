@@ -291,6 +291,42 @@ export const GoalPlanner: React.FC<GoalPlannerProps> = ({
         )}
       </div>
 
+      {/* Goal Completion by Habits & Tracked Metric Prompt ("What metric(habit) should I track to achieve this goal") */}
+      <div
+        data-testid="goal-habit-metric-banner"
+        className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3"
+      >
+        <div className="space-y-0.5">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+            The Completion of Goals by Habits · Goals Are Made Up of Habits
+          </div>
+          <h2 className="text-xs @sm:text-sm font-bold text-slate-900">
+            What metric (habit) should I track to achieve this goal? (
+            {activeTopic.goalLabel})
+          </h2>
+          <p className="text-[11px] text-slate-600">
+            Active Tracked Metric: Complete daily habit routines in{' '}
+            <strong>{activeTopic.lifeArea}</strong> ({activeTopic.currentUnits}/
+            {activeTopic.targetUnits} {activeTopic.unitName} · {topicProgressPct}
+            % complete)
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            handlePushCustomGoalItemToTasks(
+              `Daily Habit Metric for ${activeTopic.goalLabel}`,
+              `Tracked Habit Metric toward ${activeTopic.title}`
+            )
+          }
+          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0"
+        >
+          <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>Deploy Tracked Habit Metric to Today</span>
+        </button>
+      </div>
+
       {/* 3-Mode Goal System Switcher (Solid Blue · Green · Purple) */}
       <div
         role="tablist"

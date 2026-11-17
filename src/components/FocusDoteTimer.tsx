@@ -16,6 +16,7 @@ import {
   formatTimerDisplay,
   computeFocusTimerStats,
 } from '../utils/todoLogic';
+import { RealTimeFlipClock } from './RealTimeFlipClock';
 
 interface FocusDoteTimerProps {
   todos: TodoItem[];
@@ -172,6 +173,12 @@ export const FocusDoteTimer: React.FC<FocusDoteTimerProps> = ({
 
   return (
     <div data-testid="focus-dotetimer" className="space-y-4 @container">
+      {/* Real-Time Split-Flap Mechanical Clock */}
+      <RealTimeFlipClock
+        todos={todos}
+        onCompleteTask={onCompleteLinkedTask}
+      />
+
       {/* Main DoteTimer Card */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 @sm:p-5 space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-3">

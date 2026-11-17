@@ -61,11 +61,11 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
     <section
       aria-label="Life Balance Radar Chart"
       data-testid="life-radar-chart"
-      className="bg-white border border-purple-200 rounded-xl p-5 shadow-2xs"
+      className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h2 className="text-sm font-bold text-purple-950">
+          <h2 className="text-sm font-bold text-slate-900">
             Life Focus Radar
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -76,7 +76,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           <span
             data-testid="radar-avg-score"
-            className="text-xs font-mono tabular-nums font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200"
+            className="text-xs font-mono tabular-nums font-bold text-emerald-700"
           >
             Avg {averageScore}
           </span>
@@ -87,8 +87,8 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
             aria-label="Adjust baseline life area scores"
             className={`p-1.5 rounded-lg border transition-colors cursor-pointer ${
               showScoreTuner
-                ? 'bg-purple-700 text-white border-purple-700'
-                : 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100'
+                ? 'bg-slate-900 text-white border-slate-900'
+                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
             }`}
           >
             <Sliders className="w-3.5 h-3.5" aria-hidden="true" />
@@ -109,8 +109,8 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
             <polygon
               key={lvl}
               points={getLevelPolygonPoints(lvl)}
-              fill={lvl === 1.0 ? '#f5f3ff' : 'none'}
-              stroke="#c4b5fd"
+              fill={lvl === 1.0 ? '#f8fafc' : 'none'}
+              stroke="#cbd5e1"
               strokeWidth={lvl === 1.0 ? '1.5' : '1'}
               strokeDasharray={lvl < 1.0 ? '2 2' : undefined}
             />
@@ -124,7 +124,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
               y1={cy}
               x2={v.axisX}
               y2={v.axisY}
-              stroke="#93c5fd"
+              stroke="#e2e8f0"
               strokeWidth="1"
             />
           ))}
@@ -134,7 +134,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
             data-testid="radar-data-polygon"
             points={pointsString}
             fill="#3B82F6"
-            fillOpacity="0.28"
+            fillOpacity="0.22"
             stroke="#7C3AED"
             strokeWidth="2.5"
             strokeLinejoin="round"
@@ -145,7 +145,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
             const isSelected = activeCategory === v.area;
             const dotColors = ['#10B981', '#2563EB', '#7C3AED'];
             const dotFill = isSelected
-              ? '#2E1065'
+              ? '#0f172a'
               : dotColors[idx % dotColors.length];
             return (
               <g
@@ -168,7 +168,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                   y={v.labelY - 5}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  fill={isSelected ? '#2E1065' : '#1E1B4B'}
+                  fill={isSelected ? '#0f172a' : '#334155'}
                   fontSize="10"
                   fontWeight={isSelected ? '700' : '600'}
                 >
@@ -193,16 +193,16 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
       </div>
 
       {/* Compact 7-Area Breakdown & Optional Baseline Score Tuner */}
-      <div className="mt-2 pt-3 border-t border-purple-100 space-y-1.5">
+      <div className="mt-2 pt-3 border-t border-slate-100 divide-y divide-slate-100">
         {metrics.map((m) => {
           const isSelected = activeCategory === m.area;
           return (
             <div
               key={m.area}
-              className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+              className={`flex items-center justify-between px-2.5 py-1.5 text-xs transition-colors ${
                 isSelected
-                  ? 'bg-purple-700 text-white'
-                  : 'hover:bg-purple-50 text-slate-700'
+                  ? 'bg-slate-900 text-white rounded-lg'
+                  : 'hover:bg-slate-50 text-slate-700'
               }`}
             >
               <button
@@ -213,13 +213,13 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                 <span className="font-medium">{m.area}</span>
                 <span
                   className={`font-mono tabular-nums ${
-                    isSelected ? 'text-blue-100' : 'text-slate-500'
+                    isSelected ? 'text-slate-300' : 'text-slate-500'
                   }`}
                 >
                   {m.completedCount}/{m.totalCount} tasks ·{' '}
                   <strong
                     className={
-                      isSelected ? 'text-emerald-200' : 'text-purple-900'
+                      isSelected ? 'text-emerald-400' : 'text-slate-900'
                     }
                   >
                     {m.score}
@@ -236,7 +236,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                     className={`p-1 rounded border cursor-pointer ${
                       isSelected
                         ? 'border-white/30 hover:bg-white/15 text-white'
-                        : 'border-purple-200 hover:bg-purple-100 text-purple-800'
+                        : 'border-slate-200 hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     <Minus className="w-3 h-3" aria-hidden="true" />
@@ -248,7 +248,7 @@ export const LifeRadarChart: React.FC<LifeRadarChartProps> = ({
                     className={`p-1 rounded border cursor-pointer ${
                       isSelected
                         ? 'border-white/30 hover:bg-white/15 text-white'
-                        : 'border-purple-200 hover:bg-purple-100 text-purple-800'
+                        : 'border-slate-200 hover:bg-slate-100 text-slate-700'
                     }`}
                   >
                     <Plus className="w-3 h-3" aria-hidden="true" />
