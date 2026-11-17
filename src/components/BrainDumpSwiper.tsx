@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Trash2,
   Layers,
-  Sparkles,
   GripVertical,
   Clock,
 } from 'lucide-react';
@@ -16,13 +15,16 @@ import {
   BrainDumpItem,
   Category,
   Priority,
-  LIFE_AREAS,
   HOURLY_DRAG_MIME_TYPE,
 } from '../utils/todoLogic';
 
 interface BrainDumpSwiperProps {
   items: BrainDumpItem[];
-  onAddDumpItems: (rawText: string, category: Category, priority: Priority) => void;
+  onAddDumpItems: (
+    rawText: string,
+    category?: Category,
+    priority?: Priority
+  ) => void;
   onSwipeRight: (id: string) => void;
   onSwipeLeft: (id: string) => void;
   onRestoreToDeck: (id: string) => void;
@@ -31,12 +33,6 @@ interface BrainDumpSwiperProps {
   onDragStartBrainDumpCard?: (dumpId: string) => void;
   onDragEndBrainDumpCard?: () => void;
 }
-
-const PRIORITY_LABELS: Record<Priority, { text: string; color: string }> = {
-  high: { text: 'High priority', color: 'text-red-600 font-medium' },
-  medium: { text: 'Medium priority', color: 'text-amber-700' },
-  low: { text: 'Low priority', color: 'text-slate-500' },
-};
 
 export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
   items,
@@ -50,14 +46,17 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
   onDragEndBrainDumpCard,
 }) => {
   const [rawInput, setRawInput] = useState('');
-  const [category, setCategory] = useState<Category>('Portfolio');
-  const [priority, setPriority] = useState<Priority>('medium');
   const [inputError, setInputError] = useState<string | null>(null);
 
   // Drag / Swipe animation state
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
   const [isDragging, setIsDragging] = useState(false);
-  const [exitDirection, setExitDirection] = useState<'left' | 'right' | null>(null);
+  const [exitDirection, setExitDirection] = useState<'left' | 'right' | null>(
+    null
+  );
   const [lastActionFeedback, setLastActionFeedback] = useState<{
     type: 'right' | 'left';
     title: string;
@@ -112,8 +111,12 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!topCard || exitDirection) return;
-    // Ignore pointer down on interactive child buttons or the HTML5 hourly-calendar drag handle
-    if ((e.target as HTMLElement).closest('button, [data-hourly-drag-handle="true"]')) return;
+    if (
+      (e.target as HTMLElement).closest(
+        'button, [data-hourly-drag-handle="true"]'
+      )
+    )
+      return;
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     setIsDragging(true);
@@ -157,11 +160,13 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
   const handleDumpSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!rawInput.trim()) {
-      setInputError('Enter at least one thought or task idea to add to your Brain Dump.');
+      setInputError(
+        'Enter at least one thought or task idea to add to your Brain Dump.'
+      );
       return;
     }
     setInputError(null);
-    onAddDumpItems(rawInput, category, priority);
+    onAddDumpItems(rawInput);
     setRawInput('');
   };
 
@@ -175,13 +180,14 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
       <div className="flex flex-col @sm:flex-row @sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-lg @sm:text-2xl font-bold tracking-tight text-slate-900 font-display">
-            Brain Dump & Swipe Triage
+            Brain Dump &amp; Swipe Triage
           </h1>
           <p className="text-xs @sm:text-sm text-slate-600 mt-0.5">
-            Unload everything on your mind, then swipe{' '}
-            <span className="font-semibold text-emerald-700">Right</span> to add to Today&apos;s
-            Todo List or <span className="font-semibold text-slate-800">Left</span> to store for
-            later.
+            Capture raw thoughts without categories or priorities, then swipe{' '}
+            <span className="font-semibold text-emerald-700">Right</span> to add
+            to Today&apos;s Todo List or{' '}
+            <span className="font-semibold text-slate-800">Left</span> to store
+            for later.
           </p>
         </div>
 
@@ -194,7 +200,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
         </button>
       </div>
 
-      {/* Two-Column Brain Dump Layout: Left Capture + Stored Vault, Right Tinder Swipe Deck */}
+      {/* Two-Column Brain Dump Layout: Left Swipe Deck, Right Frictionless Capture */}
       <div className="grid grid-cols-1 @lg:grid-cols-12 gap-5 items-start">
         {/* Column 1 (7 cols): Tinder-Like Swipe Card Deck */}
         <div className="@lg:col-span-7 bg-white border border-slate-200 rounded-xl p-4 @sm:p-6 flex flex-col items-center">
@@ -207,7 +213,8 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
               data-testid="braindump-queue-count"
               className="font-mono tabular-nums font-medium text-slate-700"
             >
-              {queueItems.length} {queueItems.length === 1 ? 'card' : 'cards'} remaining
+              {queueItems.length} {queueItems.length === 1 ? 'card' : 'cards'}{' '}
+              remaining
             </span>
           </div>
 
@@ -246,7 +253,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                   >
                     <div>
                       <div className="text-xs text-slate-400">
-                        {nextCard.category} · {PRIORITY_LABELS[nextCard.priority].text}
+                        Up next in deck
                       </div>
                       <p className="mt-2 text-base font-semibold text-slate-600 line-clamp-2">
                         {nextCard.title}
@@ -275,26 +282,24 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                   <div
                     aria-hidden="true"
                     style={{ opacity: swipeRightOpacity }}
-                    className="pointer-events-none absolute top-4 right-4 border-2 border-emerald-600 text-emerald-700 bg-emerald-50/95 px-2.5 py-1 rounded-md text-xs font-bold tracking-wide uppercase"
+                    className="pointer-events-none absolute top-4 right-4 border-2 border-emerald-600 text-emerald-700 bg-emerald-50/95 px-2.5 py-1 rounded-md text-xs font-bold tracking-wide"
                   >
                     Keep for Today →
                   </div>
                   <div
                     aria-hidden="true"
                     style={{ opacity: swipeLeftOpacity }}
-                    className="pointer-events-none absolute top-4 left-4 border-2 border-slate-700 text-slate-800 bg-slate-100/95 px-2.5 py-1 rounded-md text-xs font-bold tracking-wide uppercase"
+                    className="pointer-events-none absolute top-4 left-4 border-2 border-slate-700 text-slate-800 bg-slate-100/95 px-2.5 py-1 rounded-md text-xs font-bold tracking-wide"
                   >
                     ← Store for Later
                   </div>
 
                   <div>
                     <div className="flex items-center justify-between gap-2">
-                      {/* Unboxed Metadata Line */}
+                      {/* Unboxed Metadata Line (No Category or Priority) */}
                       <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                        <span className="font-semibold text-slate-800">{topCard.category}</span>
-                        <span aria-hidden="true">·</span>
-                        <span className={PRIORITY_LABELS[topCard.priority].color}>
-                          {PRIORITY_LABELS[topCard.priority].text}
+                        <span className="font-medium text-slate-600">
+                          Thought Note
                         </span>
                         <span aria-hidden="true">·</span>
                         <span className="font-mono tabular-nums text-slate-400">
@@ -302,7 +307,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                         </span>
                       </div>
 
-                      {/* Draggable Pill to Pull Card directly into Side Hourly Calendar */}
+                      {/* Draggable Handle to Pull Card directly into Side Hourly Bar */}
                       <div
                         draggable
                         data-hourly-drag-handle="true"
@@ -311,12 +316,12 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                         onDragEnd={() =>
                           onDragEndBrainDumpCard && onDragEndBrainDumpCard()
                         }
-                        title="Pull this card directly into the Side Hourly Calendar to schedule it!"
+                        title="Pull this card directly into the Side Hourly Bar to schedule it!"
                         className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-900 text-[11px] font-semibold flex items-center gap-1 cursor-grab active:cursor-grabbing shrink-0"
                       >
                         <GripVertical className="w-3.5 h-3.5 text-emerald-700" />
                         <Clock className="w-3 h-3 text-emerald-700" />
-                        <span>Pull to Side Hourly Calendar</span>
+                        <span>Pull to Side Hourly Bar</span>
                       </div>
                     </div>
 
@@ -333,7 +338,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                       </p>
                     ) : (
                       <p className="mt-2 text-xs text-slate-400 italic">
-                        Swipe left/right, or pull the green handle above into any hour slot on the Side Hourly Calendar!
+                        Swipe left/right, or pull the green handle above into any hour slot on the Side Hourly Bar.
                       </p>
                     )}
                   </div>
@@ -354,7 +359,10 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                   aria-label="Swipe left to store task for later"
                   className="py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4 text-slate-600 shrink-0" aria-hidden="true" />
+                  <ArrowLeft
+                    className="w-4 h-4 text-slate-600 shrink-0"
+                    aria-hidden="true"
+                  />
                   <span>Swipe Left · Store</span>
                 </button>
 
@@ -372,7 +380,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
           ) : (
             <div className="w-full py-12 px-4 text-center bg-slate-50 border border-slate-100 rounded-xl my-2">
               <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-3">
-                <Sparkles className="w-5 h-5" aria-hidden="true" />
+                <Check className="w-5 h-5" aria-hidden="true" />
               </div>
               <h2 className="text-sm font-semibold text-slate-900">
                 All Brain Dump Cards Triaged!
@@ -392,13 +400,13 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
           )}
         </div>
 
-        {/* Column 2 (5 cols): Rapid Brain Dump Input Form */}
+        {/* Column 2 (5 cols): Rapid Frictionless Brain Dump Input Form (No Category or Priority) */}
         <div className="@lg:col-span-5 bg-white border border-slate-200 rounded-xl p-4 @sm:p-5">
           <h2 className="text-sm font-semibold text-slate-900">
             Quick Brain Dump Capture
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Type one or multiple lines below. Each line becomes a swipeable card in your deck.
+            Write raw thoughts below (one per line) with zero category or priority overhead. Each line becomes a swipeable card.
           </p>
 
           <form onSubmit={handleDumpSubmit} className="mt-4 space-y-3">
@@ -408,7 +416,7 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
               </label>
               <textarea
                 id="braindump-textarea"
-                rows={4}
+                rows={6}
                 value={rawInput}
                 onChange={(e) => {
                   setRawInput(e.target.value);
@@ -426,48 +434,6 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                 {inputError}
               </p>
             )}
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <div>
-                <label
-                  htmlFor="braindump-category"
-                  className="block text-xs font-medium text-slate-600 mb-1"
-                >
-                  Default Category
-                </label>
-                <select
-                  id="braindump-category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as Category)}
-                  className="w-full text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-slate-400"
-                >
-                  {LIFE_AREAS.map((area) => (
-                    <option key={area} value={area}>
-                      {area}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="braindump-priority"
-                  className="block text-xs font-medium text-slate-600 mb-1"
-                >
-                  Default Priority
-                </label>
-                <select
-                  id="braindump-priority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as Priority)}
-                  className="w-full text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 focus:outline-none focus:border-slate-400"
-                >
-                  <option value="high">High Priority</option>
-                  <option value="medium">Medium Priority</option>
-                  <option value="low">Low Priority</option>
-                </select>
-              </div>
-            </div>
 
             <button
               type="submit"
@@ -516,12 +482,6 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
                     <p className="text-xs text-slate-500 mt-0.5">{item.notes}</p>
                   )}
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-500">
-                    <span className="font-medium text-slate-700">{item.category}</span>
-                    <span aria-hidden="true">·</span>
-                    <span className={PRIORITY_LABELS[item.priority].color}>
-                      {PRIORITY_LABELS[item.priority].text}
-                    </span>
-                    <span aria-hidden="true">·</span>
                     <span>Stored for later</span>
                   </div>
                 </div>
@@ -569,3 +529,4 @@ export const BrainDumpSwiper: React.FC<BrainDumpSwiperProps> = ({
     </div>
   );
 };
+

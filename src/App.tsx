@@ -21,6 +21,9 @@ import {
   Flame,
   Clock,
   BarChart3,
+  Hexagon,
+  CircleDot,
+  X,
   Award,
   Kanban,
   GitCommitHorizontal,
@@ -318,9 +321,9 @@ export default function App() {
   const [layoutVersion, setLayoutVersion] = useState<AppLayoutVersion>('tablet');
   const [activeView, setActiveView] = useState<WorkspaceTab>('tasks');
   const [taskViewMode, setTaskViewMode] = useState<TaskViewMode>('list');
-  // Default to 'hourly_calendar' so users can pull any card directly into the Side Hourly Calendar
+  // Hidden by default: Stats, Radar, Wheel, and Side Hourly Bar only appear when their right-side icon is clicked
   const [taskRightPanelMode, setTaskRightPanelMode] =
-    useState<TaskRightPanelMode>('hourly_calendar');
+    useState<TaskRightPanelMode>(null);
   const [activeDraggedTaskId, setActiveDraggedTaskId] = useState<string | null>(
     null
   );
@@ -660,11 +663,11 @@ export default function App() {
     });
   };
 
-  // Brain Dump Handlers
+  // Brain Dump Handlers (No category or priority required during Brain Dump capture)
   const handleAddDumpItems = (
     rawText: string,
-    category: Category,
-    priority: Priority
+    category: Category = 'Portfolio',
+    priority: Priority = 'medium'
   ) => {
     const newItems = parseBrainDumpInput(rawText, category, priority);
     if (newItems.length > 0) {
@@ -1043,14 +1046,14 @@ export default function App() {
         <button
           type="button"
           onClick={() => setActiveView('tasks')}
-          className="text-base font-bold tracking-tight text-slate-900 font-display whitespace-nowrap shrink-0 cursor-pointer"
+          className="text-[17px] font-bold tracking-[-0.032em] text-slate-950 font-display whitespace-nowrap shrink-0 cursor-pointer"
         >
           FocusFlow
         </button>
 
         <nav
           aria-label="Primary studio navigation"
-          className="hidden md:flex items-center gap-6 text-xs font-medium text-slate-600"
+          className="hidden md:flex items-center gap-6 text-[13px] font-medium tracking-[-0.01em] text-slate-600"
         >
           {(
             [
@@ -1069,8 +1072,8 @@ export default function App() {
                 onClick={() => setActiveView(navLink.id)}
                 className={`py-1 transition-colors whitespace-nowrap shrink-0 cursor-pointer border-b-2 ${
                   isCurrent
-                    ? 'text-slate-900 font-semibold border-slate-900'
-                    : 'text-slate-600 hover:text-slate-900 border-transparent hover:border-slate-300'
+                    ? 'text-slate-950 font-semibold border-slate-950'
+                    : 'text-slate-600 hover:text-slate-950 border-transparent hover:border-slate-300'
                 }`}
               >
                 {navLink.label}
@@ -1083,7 +1086,7 @@ export default function App() {
           <button
             type="button"
             onClick={focusQuickAdd}
-            className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+            className="px-4 py-2 text-[13px] font-semibold tracking-[-0.01em] text-white bg-slate-900 hover:bg-slate-800 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
           >
             New Daily Action
           </button>
@@ -1175,7 +1178,7 @@ export default function App() {
             <nav aria-label="Left workspace navigation" className="space-y-3.5">
               {leftRailGroups.map((group) => (
                 <div key={group.groupLabel} className="space-y-1">
-                  <div className="px-2 text-[11px] font-semibold text-slate-400">
+                  <div className="px-2 text-[11px] font-semibold tracking-[0.03em] uppercase text-slate-400">
                     {group.groupLabel}
                   </div>
                   <div className="space-y-0.5">
@@ -1187,15 +1190,15 @@ export default function App() {
                         item.id === 'habits' ||
                         item.id === 'timer' ||
                         item.id === 'bingo'
-                          ? 'bg-emerald-600 text-white'
+                          ? 'bg-emerald-600 text-white font-semibold'
                           : item.id === 'backlog' ||
                               item.id === 'calendar' ||
                               item.id === 'plan' ||
                               item.id === 'matrix' ||
                               item.id === 'network' ||
                               item.id === 'maps'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-purple-700 text-white';
+                            ? 'bg-blue-600 text-white font-semibold'
+                            : 'bg-purple-700 text-white font-semibold';
                       return (
                         <button
                           key={item.id}
@@ -1203,7 +1206,7 @@ export default function App() {
                           data-testid={`nav-tab-${item.id}`}
                           onClick={() => setActiveView(item.id)}
                           aria-current={isActive ? 'page' : undefined}
-                          className={`w-full px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center justify-between gap-2 transition-colors cursor-pointer whitespace-nowrap ${
+                          className={`w-full px-2.5 py-1.5 rounded-xl text-[13px] font-medium tracking-[-0.008em] flex items-center justify-between gap-2 transition-colors cursor-pointer whitespace-nowrap ${
                             isActive
                               ? `${activeSolidBg} shadow-2xs`
                               : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -1215,7 +1218,7 @@ export default function App() {
                           </span>
                           {item.badge !== undefined && (
                             <span
-                              className={`font-mono tabular-nums text-[10px] ${
+                              className={`font-mono tabular-nums text-[11px] ${
                                 isActive
                                   ? 'text-white/90 font-bold'
                                   : 'text-slate-400'
@@ -1234,7 +1237,7 @@ export default function App() {
 
             {/* 7 Life Areas Quick Filter in Left Rail */}
             <div className="pt-2 border-t border-slate-200 space-y-1">
-              <div className="px-2 text-[11px] font-semibold text-slate-400">
+              <div className="px-2 text-[11px] font-semibold tracking-[0.03em] uppercase text-slate-400">
                 05. Life Focus Areas
               </div>
               <div className="space-y-0.5">
@@ -1334,18 +1337,10 @@ export default function App() {
         </aside>
 
         {/* Scrollable Tablet / Desktop Main Canvas */}
-        <div className="flex-1 h-full overflow-y-auto p-4 sm:p-5 @container">
-          <div className="grid grid-cols-1 @3xl:grid-cols-12 gap-5 items-start">
+        <div className="flex-1 h-full overflow-y-auto p-4 sm:p-6 @container">
+          <div className="max-w-5xl mx-auto">
             {/* Main Active Workspace */}
-            <section
-              className={
-                activeView === 'plan' ||
-                activeView === 'maps' ||
-                activeView === 'visions'
-                  ? '@3xl:col-span-12 space-y-4 min-w-0'
-                  : '@3xl:col-span-7 space-y-4 min-w-0'
-              }
-            >
+            <section className="space-y-4 min-w-0">
               {activeView === 'flipclock' ? (
                 <RealTimeFlipClock
                   todos={todos}
@@ -1521,14 +1516,13 @@ export default function App() {
                   {/* Page Header & Utility Controls */}
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-display text-balance">
+                      <h1 className="text-2xl sm:text-[26px] font-bold tracking-[-0.03em] text-slate-950 font-display leading-[1.15] text-balance">
                         {categoryFilter === 'All'
                           ? 'Today — Morning, Afternoon & Evening Rhythm'
                           : `${categoryFilter} — Daily Rhythm`}
                       </h1>
-                      <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                        Complete habits and tasks chronologically by time of day, or drag any row handle (⋮⋮) into the{' '}
-                        <strong className="text-blue-700 font-semibold">Side Hourly Calendar</strong>.
+                      <p className="text-[13.5px] sm:text-sm leading-relaxed text-slate-500 mt-1 max-w-[65ch]">
+                        Complete habits and tasks chronologically by time of day, or click the right-side icons to open Stats, Radar, Wheel, or the Side Hourly Bar.
                       </p>
                     </div>
 
@@ -1539,22 +1533,19 @@ export default function App() {
                         onClick={() =>
                           setTaskRightPanelMode((prev) =>
                             prev === 'hourly_calendar'
-                              ? 'insights'
+                              ? null
                               : 'hourly_calendar'
                           )
                         }
-                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+                        title="Toggle Side Hourly Bar"
+                        aria-label="Toggle Side Hourly Bar"
+                        className={`p-2 text-xs font-semibold rounded-lg border transition-colors flex items-center justify-center cursor-pointer ${
                           taskRightPanelMode === 'hourly_calendar'
                             ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                            : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-100'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
-                        <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>
-                          {taskRightPanelMode === 'hourly_calendar'
-                            ? 'Show Stats & Radar'
-                            : 'Open Hourly Calendar'}
-                        </span>
+                        <Clock className="w-4 h-4" aria-hidden="true" />
                       </button>
 
                       {stats.completed > 0 && (
@@ -1812,86 +1803,245 @@ export default function App() {
                 </>
               )}
             </section>
-
-            {/* Right Column: Side Hourly Calendar (Default Open for Drag-and-Drop Card Scheduling) OR Radar Chart + Task Wheel Picker */}
-            {activeView !== 'plan' &&
-              activeView !== 'maps' &&
-              activeView !== 'visions' && (
-              <aside className="@3xl:col-span-5 space-y-4 items-start">
-                {/* Right Panel Mode Switcher Strip */}
-                <div className="bg-white border border-slate-200 rounded-xl p-1.5 flex items-center justify-between gap-1 shadow-2xs">
-                  <button
-                    type="button"
-                    data-testid="right-panel-tab-hourly"
-                    onClick={() => setTaskRightPanelMode('hourly_calendar')}
-                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
-                      taskRightPanelMode === 'hourly_calendar'
-                        ? 'bg-blue-600 text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Clock className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>Side Hourly Calendar (Drop Cards Here)</span>
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="right-panel-tab-insights"
-                    onClick={() => setTaskRightPanelMode('insights')}
-                    className={`flex-1 py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer whitespace-nowrap ${
-                      taskRightPanelMode === 'insights'
-                        ? 'bg-slate-900 text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                    }`}
-                  >
-                    <BarChart3 className="w-3.5 h-3.5" aria-hidden="true" />
-                    <span>Stats, Radar &amp; Wheel</span>
-                  </button>
-                </div>
-
-                {taskRightPanelMode === 'hourly_calendar' ? (
-                  <HourlyCalendarPanel
-                    todos={todos}
-                    activeDraggedTaskId={activeDraggedTaskId}
-                    onToggleTodo={handleToggleTodo}
-                    onAssignScheduledHour={handleAssignScheduledHour}
-                    onScheduleBrainDumpAtHour={handleScheduleBrainDumpAtHour}
-                    onAddTodoAtHour={handleAddTodo}
-                    onCloseHourlyView={() => setTaskRightPanelMode('insights')}
-                  />
-                ) : (
-                  <div className="space-y-4 items-start">
-                    <ProductiveInfographicsPanel
-                      todayIso={todayIso}
-                      todos={todos}
-                      habits={habits}
-                      activeCategory={categoryFilter}
-                      onSelectCategory={handleRadarSelectCategory}
-                      onToggleHabitDate={handleToggleHabitDate}
-                    />
-
-                    <div className="grid grid-cols-1 @xl:grid-cols-2 @3xl:grid-cols-1 gap-4 items-start">
-                      <LifeRadarChart
-                        todos={todos}
-                        activeCategory={categoryFilter}
-                        baseOverrides={radarBaseOverrides}
-                        onSelectCategory={handleRadarSelectCategory}
-                        onAdjustBaseScore={handleAdjustBaseScore}
-                      />
-
-                      <TaskWheelPicker
-                        todos={todos}
-                        activeCategory={categoryFilter}
-                        selectedFocusTaskId={selectedFocusTaskId}
-                        onSelectFocusTask={setSelectedFocusTaskId}
-                        onCompleteTask={handleToggleTodo}
-                      />
-                    </div>
-                  </div>
-                )}
-              </aside>
-            )}
           </div>
         </div>
+
+        {/* On-Demand Right Drawer: Only visible when Stats, Radar, Wheel, or Side Hourly Bar icon is clicked */}
+        {taskRightPanelMode !== null && (
+          <aside
+            aria-label="Right utility drawer"
+            data-testid="right-utility-drawer"
+            className="w-80 sm:w-96 xl:w-[430px] h-full shrink-0 bg-slate-50 border-l border-slate-200 flex flex-col overflow-hidden"
+          >
+            <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                {taskRightPanelMode === 'hourly_calendar' && (
+                  <>
+                    <Clock
+                      className="w-4 h-4 text-blue-600 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs font-bold text-slate-900 truncate">
+                      Side Hourly Bar
+                    </span>
+                  </>
+                )}
+                {(taskRightPanelMode === 'stats' ||
+                  taskRightPanelMode === 'insights') && (
+                  <>
+                    <BarChart3
+                      className="w-4 h-4 text-emerald-600 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs font-bold text-slate-900 truncate">
+                      Consistency &amp; Momentum Stats
+                    </span>
+                  </>
+                )}
+                {taskRightPanelMode === 'radar' && (
+                  <>
+                    <Hexagon
+                      className="w-4 h-4 text-purple-600 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs font-bold text-slate-900 truncate">
+                      7-Axis Life Focus Radar
+                    </span>
+                  </>
+                )}
+                {taskRightPanelMode === 'wheel' && (
+                  <>
+                    <CircleDot
+                      className="w-4 h-4 text-blue-600 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span className="text-xs font-bold text-slate-900 truncate">
+                      Spin-the-Wheel Task Picker
+                    </span>
+                  </>
+                )}
+              </div>
+
+              <button
+                type="button"
+                data-testid="close-right-drawer-btn"
+                onClick={() => setTaskRightPanelMode(null)}
+                aria-label="Close right panel"
+                title="Close panel"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {taskRightPanelMode === 'hourly_calendar' && (
+                <HourlyCalendarPanel
+                  todos={todos}
+                  activeDraggedTaskId={activeDraggedTaskId}
+                  onToggleTodo={handleToggleTodo}
+                  onAssignScheduledHour={handleAssignScheduledHour}
+                  onScheduleBrainDumpAtHour={handleScheduleBrainDumpAtHour}
+                  onAddTodoAtHour={handleAddTodo}
+                  onCloseHourlyView={() => setTaskRightPanelMode(null)}
+                />
+              )}
+
+              {(taskRightPanelMode === 'stats' ||
+                taskRightPanelMode === 'insights') && (
+                <ProductiveInfographicsPanel
+                  todayIso={todayIso}
+                  todos={todos}
+                  habits={habits}
+                  activeCategory={categoryFilter}
+                  onSelectCategory={handleRadarSelectCategory}
+                  onToggleHabitDate={handleToggleHabitDate}
+                />
+              )}
+
+              {taskRightPanelMode === 'radar' && (
+                <LifeRadarChart
+                  todos={todos}
+                  activeCategory={categoryFilter}
+                  baseOverrides={radarBaseOverrides}
+                  onSelectCategory={handleRadarSelectCategory}
+                  onAdjustBaseScore={handleAdjustBaseScore}
+                />
+              )}
+
+              {taskRightPanelMode === 'wheel' && (
+                <TaskWheelPicker
+                  todos={todos}
+                  activeCategory={categoryFilter}
+                  selectedFocusTaskId={selectedFocusTaskId}
+                  onSelectFocusTask={setSelectedFocusTaskId}
+                  onCompleteTask={handleToggleTodo}
+                />
+              )}
+            </div>
+          </aside>
+        )}
+
+        {/* Right-Side Vertical Icon Bar: Stats · Radar · Wheel · Side Hourly Bar */}
+        <aside
+          aria-label="Right side tool icons"
+          data-testid="right-side-icon-bar"
+          className="w-14 h-full shrink-0 bg-white border-l border-slate-200 py-3 px-1.5 flex flex-col items-center justify-between select-none"
+        >
+          <div className="flex flex-col items-center gap-2 w-full">
+            {/* 1. Stats Icon */}
+            <button
+              type="button"
+              data-testid="right-panel-tab-insights"
+              onClick={() =>
+                setTaskRightPanelMode((prev) =>
+                  prev === 'stats' || prev === 'insights' ? null : 'stats'
+                )
+              }
+              aria-label="Toggle Stats Infographics"
+              aria-pressed={
+                taskRightPanelMode === 'stats' ||
+                taskRightPanelMode === 'insights'
+              }
+              title="Stats & Consistency Infographics"
+              className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer ${
+                taskRightPanelMode === 'stats' ||
+                taskRightPanelMode === 'insights'
+                  ? 'bg-emerald-600 text-white shadow-2xs'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span className="text-[9px] font-semibold leading-none">
+                Stats
+              </span>
+            </button>
+
+            {/* 2. Radar Icon */}
+            <button
+              type="button"
+              data-testid="right-icon-radar"
+              onClick={() =>
+                setTaskRightPanelMode((prev) =>
+                  prev === 'radar' ? null : 'radar'
+                )
+              }
+              aria-label="Toggle Life Focus Radar"
+              aria-pressed={taskRightPanelMode === 'radar'}
+              title="7-Axis Life Focus Radar"
+              className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer ${
+                taskRightPanelMode === 'radar'
+                  ? 'bg-purple-700 text-white shadow-2xs'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Hexagon className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span className="text-[9px] font-semibold leading-none">
+                Radar
+              </span>
+            </button>
+
+            {/* 3. Wheel Icon */}
+            <button
+              type="button"
+              data-testid="right-icon-wheel"
+              onClick={() =>
+                setTaskRightPanelMode((prev) =>
+                  prev === 'wheel' ? null : 'wheel'
+                )
+              }
+              aria-label="Toggle Spin-the-Wheel Task Picker"
+              aria-pressed={taskRightPanelMode === 'wheel'}
+              title="Spin-the-Wheel Task Picker"
+              className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer ${
+                taskRightPanelMode === 'wheel'
+                  ? 'bg-slate-900 text-white shadow-2xs'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <CircleDot className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span className="text-[9px] font-semibold leading-none">
+                Wheel
+              </span>
+            </button>
+
+            {/* 4. Side Hourly Bar Icon */}
+            <button
+              type="button"
+              data-testid="right-panel-tab-hourly"
+              onClick={() =>
+                setTaskRightPanelMode((prev) =>
+                  prev === 'hourly_calendar' ? null : 'hourly_calendar'
+                )
+              }
+              aria-label="Toggle Side Hourly Bar"
+              aria-pressed={taskRightPanelMode === 'hourly_calendar'}
+              title="Side Hourly Calendar Bar"
+              className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-colors cursor-pointer ${
+                taskRightPanelMode === 'hourly_calendar'
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span className="text-[9px] font-semibold leading-none">
+                Hourly
+              </span>
+            </button>
+          </div>
+
+          {taskRightPanelMode !== null && (
+            <button
+              type="button"
+              onClick={() => setTaskRightPanelMode(null)}
+              aria-label="Hide open right panel"
+              title="Close panel"
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          )}
+        </aside>
       </div>
     </div>
   );

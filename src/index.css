@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Plus Jakarta Sans", sans-serif;
-  --font-sans: "DM Sans", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-display: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: "DM Sans", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   /* Solid Flat Green, Blue & Purple Color System (No Gradients) */
   --aurora-green-50: #ecfdf5;
@@ -24,13 +24,47 @@
 }
 
 @layer base {
+  html {
+    font-optical-sizing: auto;
+    font-kerning: normal;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    letter-spacing: -0.008em;
+    line-height: 1.5;
     background-color: #f8fafc;
     color: #0f172a;
   }
-  h1, h2, h3, h4, .font-display {
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
     font-family: var(--font-display);
+    font-feature-settings: "ss01", "cv01";
+    letter-spacing: -0.026em;
+    line-height: 1.22;
+  }
+
+  h1 {
+    letter-spacing: -0.032em;
+    line-height: 1.15;
+  }
+
+  .font-mono,
+  code,
+  pre,
+  time,
+  .tabular-nums {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums slashed-zero;
+    letter-spacing: -0.02em;
   }
 }
 

@@ -1474,7 +1474,13 @@ export type WorkspaceTab =
   | 'calendar'
   | 'braindump';
 
-export type TaskRightPanelMode = 'insights' | 'hourly_calendar';
+export type TaskRightPanelMode =
+  | 'stats'
+  | 'radar'
+  | 'wheel'
+  | 'hourly_calendar'
+  | 'insights'
+  | null;
 
 export function resolveRadarAreaNavigation(cat: Category | 'All'): {
   targetView: WorkspaceTab;

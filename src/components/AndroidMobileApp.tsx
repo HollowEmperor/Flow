@@ -6,6 +6,9 @@ import {
   Calendar as CalendarIcon,
   Layers,
   BarChart3,
+  Hexagon,
+  CircleDot,
+  X,
   Award,
   ChevronDown,
   ChevronUp,
@@ -180,8 +183,8 @@ interface AndroidMobileAppProps {
   brainDumpQueueCount: number;
   onAddDumpItems: (
     rawText: string,
-    category: Category,
-    priority: Priority
+    category?: Category,
+    priority?: Priority
   ) => void;
   onSwipeRight: (itemId: string) => void;
   onSwipeLeft: (itemId: string) => void;
@@ -301,9 +304,10 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
   onToggleHabitDate,
   onAddHabit,
 }) => {
+  // Hidden by default: Stats, Radar, Wheel, and Side Hourly Bar only appear when their right-side icon is clicked
   const [mobileTaskSubTab, setMobileTaskSubTab] = useState<
-    'list' | 'insights' | 'hourly'
-  >('list');
+    'stats' | 'radar' | 'wheel' | 'hourly' | null
+  >(null);
   const todayIso = getTodayIsoDate();
 
   const bottomNavItems: Array<{
@@ -436,64 +440,102 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
       <div className="bg-white border-b border-slate-200 px-3.5 py-2 space-y-1.5 shrink-0">
         <div className="flex items-center justify-between gap-1.5">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="text-sm font-bold tracking-tight text-slate-900 font-display truncate">
+            <span className="text-[15px] font-bold tracking-[-0.028em] text-slate-950 font-display truncate">
               FocusFlow
             </span>
-            <span className="text-[11px] font-mono tabular-nums text-emerald-700 font-semibold shrink-0">
+            <span className="text-[11.5px] font-mono tabular-nums text-emerald-700 font-semibold shrink-0">
               · {stats.completionRate}%
             </span>
           </div>
 
           <div className="flex items-center gap-1 shrink-0">
-            {activeView === 'tasks' && (
-              <div
-                role="group"
-                aria-label="Mobile task sub-view"
-                className="bg-slate-100 p-0.5 rounded-lg flex items-center text-[10px] font-semibold shrink-0"
+            {/* Right-Side Icon Cluster: Stats · Radar · Wheel · Side Hourly Bar */}
+            <div
+              role="group"
+              aria-label="Right side tool icons"
+              data-testid="mobile-right-icon-bar"
+              className="flex items-center gap-1 shrink-0"
+            >
+              <button
+                type="button"
+                data-testid="mobile-right-icon-stats"
+                onClick={() =>
+                  setMobileTaskSubTab((prev) =>
+                    prev === 'stats' ? null : 'stats'
+                  )
+                }
+                aria-label="Toggle Stats Infographics"
+                aria-pressed={mobileTaskSubTab === 'stats'}
+                title="Stats & Consistency Infographics"
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  mobileTaskSubTab === 'stats'
+                    ? 'bg-emerald-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
               >
-                <button
-                  type="button"
-                  onClick={() => setMobileTaskSubTab('list')}
-                  className={`px-2 py-1 rounded-md transition-colors whitespace-nowrap cursor-pointer ${
-                    mobileTaskSubTab === 'list'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Today ({stats.active})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileTaskSubTab('insights')}
-                  className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap cursor-pointer ${
-                    mobileTaskSubTab === 'insights'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <BarChart3
-                    className="w-2.5 h-2.5 text-emerald-600"
-                    aria-hidden="true"
-                  />
-                  <span>Stats</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMobileTaskSubTab('hourly')}
-                  className={`px-2 py-1 rounded-md transition-colors flex items-center gap-1 whitespace-nowrap cursor-pointer ${
-                    mobileTaskSubTab === 'hourly'
-                      ? 'bg-white text-slate-900 shadow-2xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Clock
-                    className="w-2.5 h-2.5 text-emerald-600"
-                    aria-hidden="true"
-                  />
-                  <span>Hourly</span>
-                </button>
-              </div>
-            )}
+                <BarChart3 className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+
+              <button
+                type="button"
+                data-testid="mobile-right-icon-radar"
+                onClick={() =>
+                  setMobileTaskSubTab((prev) =>
+                    prev === 'radar' ? null : 'radar'
+                  )
+                }
+                aria-label="Toggle Life Focus Radar"
+                aria-pressed={mobileTaskSubTab === 'radar'}
+                title="7-Axis Life Focus Radar"
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  mobileTaskSubTab === 'radar'
+                    ? 'bg-purple-700 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <Hexagon className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+
+              <button
+                type="button"
+                data-testid="mobile-right-icon-wheel"
+                onClick={() =>
+                  setMobileTaskSubTab((prev) =>
+                    prev === 'wheel' ? null : 'wheel'
+                  )
+                }
+                aria-label="Toggle Spin-the-Wheel Task Picker"
+                aria-pressed={mobileTaskSubTab === 'wheel'}
+                title="Spin-the-Wheel Task Picker"
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  mobileTaskSubTab === 'wheel'
+                    ? 'bg-slate-900 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <CircleDot className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+
+              <button
+                type="button"
+                data-testid="mobile-right-icon-hourly"
+                onClick={() =>
+                  setMobileTaskSubTab((prev) =>
+                    prev === 'hourly' ? null : 'hourly'
+                  )
+                }
+                aria-label="Toggle Side Hourly Bar"
+                aria-pressed={mobileTaskSubTab === 'hourly'}
+                title="Side Hourly Calendar Bar"
+                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
+                  mobileTaskSubTab === 'hourly'
+                    ? 'bg-blue-600 text-white shadow-2xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </div>
 
             <details className="relative group">
               <summary className="list-none px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-semibold flex items-center gap-1 cursor-pointer select-none whitespace-nowrap">
@@ -507,7 +549,10 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
                     <button
                       key={pill.id}
                       type="button"
-                      onClick={() => onSelectView(pill.id)}
+                      onClick={() => {
+                        setMobileTaskSubTab(null);
+                        onSelectView(pill.id);
+                      }}
                       className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium flex items-center gap-1.5 whitespace-nowrap cursor-pointer transition-colors ${
                         isCurrent
                           ? 'bg-slate-900 text-white font-semibold'
@@ -527,49 +572,107 @@ export const AndroidMobileApp: React.FC<AndroidMobileAppProps> = ({
 
       {/* Scrollable 9:16 Mobile Content Viewport */}
       <div className="flex-1 overflow-y-auto px-3.5 py-3.5 space-y-3.5 @container">
-        {activeView === 'tasks' && mobileTaskSubTab === 'insights' ? (
-          <div className="space-y-4">
-            <ProductiveInfographicsPanel
-              todayIso={todayIso}
-              todos={todos}
-              habits={habits}
-              activeCategory={categoryFilter}
-              onSelectCategory={(cat) => {
-                const nav = resolveRadarAreaNavigation(cat);
-                onSelectCategoryFilter(nav.categoryFilter);
-              }}
-              onToggleHabitDate={onToggleHabitDate}
-            />
-            <LifeRadarChart
-              todos={todos}
-              activeCategory={categoryFilter}
-              baseOverrides={radarBaseOverrides}
-              onSelectCategory={(cat) => {
-                const nav = resolveRadarAreaNavigation(cat);
-                onSelectCategoryFilter(nav.categoryFilter);
-                onSelectView(nav.targetView);
-                if (nav.targetView === 'tasks') {
-                  setMobileTaskSubTab('list');
-                }
-              }}
-              onAdjustBaseScore={onAdjustBaseScore}
-            />
-            <TaskWheelPicker
-              todos={todos}
-              activeCategory={categoryFilter}
-              selectedFocusTaskId={selectedFocusTaskId}
-              onSelectFocusTask={onSelectFocusTask}
-              onCompleteTask={onToggleTodo}
-            />
+        {mobileTaskSubTab !== null ? (
+          <div className="space-y-3">
+            <div className="bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
+                {mobileTaskSubTab === 'stats' && (
+                  <>
+                    <BarChart3
+                      className="w-4 h-4 text-emerald-600"
+                      aria-hidden="true"
+                    />
+                    <span>Consistency &amp; Momentum Stats</span>
+                  </>
+                )}
+                {mobileTaskSubTab === 'radar' && (
+                  <>
+                    <Hexagon
+                      className="w-4 h-4 text-purple-600"
+                      aria-hidden="true"
+                    />
+                    <span>7-Axis Life Focus Radar</span>
+                  </>
+                )}
+                {mobileTaskSubTab === 'wheel' && (
+                  <>
+                    <CircleDot
+                      className="w-4 h-4 text-blue-600"
+                      aria-hidden="true"
+                    />
+                    <span>Spin-the-Wheel Task Picker</span>
+                  </>
+                )}
+                {mobileTaskSubTab === 'hourly' && (
+                  <>
+                    <Clock
+                      className="w-4 h-4 text-blue-600"
+                      aria-hidden="true"
+                    />
+                    <span>Side Hourly Bar</span>
+                  </>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setMobileTaskSubTab(null)}
+                aria-label="Close tool panel"
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            {mobileTaskSubTab === 'stats' && (
+              <ProductiveInfographicsPanel
+                todayIso={todayIso}
+                todos={todos}
+                habits={habits}
+                activeCategory={categoryFilter}
+                onSelectCategory={(cat) => {
+                  const nav = resolveRadarAreaNavigation(cat);
+                  onSelectCategoryFilter(nav.categoryFilter);
+                }}
+                onToggleHabitDate={onToggleHabitDate}
+              />
+            )}
+
+            {mobileTaskSubTab === 'radar' && (
+              <LifeRadarChart
+                todos={todos}
+                activeCategory={categoryFilter}
+                baseOverrides={radarBaseOverrides}
+                onSelectCategory={(cat) => {
+                  const nav = resolveRadarAreaNavigation(cat);
+                  onSelectCategoryFilter(nav.categoryFilter);
+                  onSelectView(nav.targetView);
+                  setMobileTaskSubTab(null);
+                }}
+                onAdjustBaseScore={onAdjustBaseScore}
+              />
+            )}
+
+            {mobileTaskSubTab === 'wheel' && (
+              <TaskWheelPicker
+                todos={todos}
+                activeCategory={categoryFilter}
+                selectedFocusTaskId={selectedFocusTaskId}
+                onSelectFocusTask={onSelectFocusTask}
+                onCompleteTask={onToggleTodo}
+              />
+            )}
+
+            {mobileTaskSubTab === 'hourly' && (
+              <HourlyCalendarPanel
+                todos={todos}
+                onToggleTodo={onToggleTodo}
+                onAssignScheduledHour={onAssignScheduledHour}
+                onAddTodoAtHour={onAddTodo}
+                onCloseHourlyView={() => setMobileTaskSubTab(null)}
+              />
+            )}
           </div>
-        ) : activeView === 'tasks' && mobileTaskSubTab === 'hourly' ? (
-          <HourlyCalendarPanel
-            todos={todos}
-            onToggleTodo={onToggleTodo}
-            onAssignScheduledHour={onAssignScheduledHour}
-            onAddTodoAtHour={onAddTodo}
-            onCloseHourlyView={() => setMobileTaskSubTab('insights')}
-          />
         ) : activeView === 'tasks' ? (
           <div className="space-y-3">
             {/* Horizontal 7 Life Area Filter Scroll */}

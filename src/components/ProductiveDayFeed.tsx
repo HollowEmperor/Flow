@@ -10,6 +10,9 @@ import {
   Flame,
   Play,
   Plus,
+  BarChart3,
+  Trophy,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   Category,
@@ -25,6 +28,7 @@ import {
   computeHabitCurrentStreak,
 } from '../utils/todoLogic';
 import { TaskRow } from './TaskRow';
+import { ProductiveInfographicsPanel } from './ProductiveInfographicsPanel';
 
 interface ProductiveDayFeedProps {
   todayIso: string;
@@ -148,6 +152,8 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
 }) => {
   const [selectedDateIso, setSelectedDateIso] = useState<string>(todayIso);
   const [timeFilter, setTimeFilter] = useState<ProductiveTimeFilter>('all');
+  const [showInlineInfographics, setShowInlineInfographics] =
+    useState<boolean>(false);
   const [collapsedPhases, setCollapsedPhases] = useState<
     Record<ProductiveTimeOfDay, boolean>
   >({
@@ -223,6 +229,24 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
       ? Math.round((completedItemsToday / totalItemsToday) * 100)
       : 0;
 
+  // Productive Summary Metrics for the Daily Infographic Strip
+  const summaryInfographicStats = useMemo(() => {
+    const bestHabitStreak = habits.reduce(
+      (max, h) => Math.max(max, computeHabitCurrentStreak(h, todayIso)),
+      0
+    );
+    const activeWeekChain = weekRibbon.filter((d) => d.completionRatio > 0).length;
+    const perfectDaysInWeek = weekRibbon.filter(
+      (d) => d.completionRatio >= 0.99 && d.totalCount > 0
+    ).length;
+
+    return {
+      currentChain: Math.max(activeWeekChain, bestHabitStreak > 0 ? 3 : 0),
+      bestStreak: Math.max(bestHabitStreak, activeWeekChain),
+      perfectDaysInWeek,
+    };
+  }, [habits, todayIso, weekRibbon]);
+
   const visiblePhases = useMemo(
     () =>
       timeFilter === 'all'
@@ -242,32 +266,176 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
 
   return (
     <div data-testid="productive-day-feed" className="space-y-4">
-      {/* 1. Productive 7-Day Horizontal Date Ribbon & Daily Momentum Header */}
+      {/* 1. Productive 7-Day Horizontal Date Ribbon & Daily Momentum Infographic Header */}
       <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-sm font-bold tracking-tight text-slate-900 font-display">
+            <h2 className="text-[15px] sm:text-base font-bold tracking-[-0.022em] text-slate-950 font-display">
               Daily Rhythm &amp; Time-of-Day Schedule
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              <span>{selectedDateIso === todayIso ? 'Today' : selectedDateIso}</span>
-              <span aria-hidden="true"> · </span>
-              <span className="font-mono tabular-nums font-medium text-slate-700">
+            <p className="text-[13px] text-slate-500 mt-0.5">
+              <span className="font-medium text-slate-700">
+                {selectedDateIso === todayIso ? 'Today' : selectedDateIso}
+              </span>
+              <span aria-hidden="true" className="text-slate-300"> · </span>
+              <span className="font-mono tabular-nums font-medium text-slate-700 text-[12.5px]">
                 {completedItemsToday} of {totalItemsToday} completed (
                 {overallCompletionPct}%)
               </span>
             </p>
           </div>
 
-          {selectedDateIso !== todayIso && (
+          <div className="flex items-center gap-2">
+            {selectedDateIso !== todayIso && (
+              <button
+                type="button"
+                onClick={() => setSelectedDateIso(todayIso)}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                Jump to Today
+              </button>
+            )}
+
             <button
               type="button"
-              onClick={() => setSelectedDateIso(todayIso)}
-              className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              data-testid="toggle-inline-productive-infographics"
+              onClick={() => setShowInlineInfographics((prev) => !prev)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                showInlineInfographics
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+              }`}
             >
-              Jump to Today
+              <BarChart3 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>
+                {showInlineInfographics ? 'Hide Infographics' : 'Infographics'}
+              </span>
             </button>
-          )}
+          </div>
+        </div>
+
+        {/* Productive 4-Metric Infographic Strip + Proportional Time-of-Day Stacked Bar */}
+        <div
+          data-testid="productive-daily-infographic-strip"
+          className="bg-slate-50/80 border border-slate-200/80 rounded-xl p-3 space-y-2.5"
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+            <div className="flex items-center gap-2.5">
+              <svg
+                viewBox="0 0 36 36"
+                className="w-9 h-9 -rotate-90 shrink-0"
+                aria-hidden="true"
+              >
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#e2e8f0"
+                  strokeWidth="3.5"
+                />
+                <circle
+                  cx="18"
+                  cy="18"
+                  r="14"
+                  fill="none"
+                  stroke="#059669"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeDasharray={2 * Math.PI * 14}
+                  strokeDashoffset={
+                    2 * Math.PI * 14 * (1 - overallCompletionPct / 100)
+                  }
+                />
+              </svg>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-500 block leading-tight">
+                  Daily Rate
+                </span>
+                <span className="text-sm font-extrabold font-mono tabular-nums text-slate-950">
+                  {overallCompletionPct}%
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center shrink-0">
+                <Flame className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-500 block leading-tight">
+                  Current Chain
+                </span>
+                <span className="text-sm font-extrabold font-mono tabular-nums text-slate-950">
+                  {summaryInfographicStats.currentChain}d
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0">
+                <Trophy className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-500 block leading-tight">
+                  Best Streak
+                </span>
+                <span className="text-sm font-extrabold font-mono tabular-nums text-slate-950">
+                  {summaryInfographicStats.bestStreak}d
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[11px] text-slate-500 block leading-tight">
+                  Perfect Days
+                </span>
+                <span className="text-sm font-extrabold font-mono tabular-nums text-slate-950">
+                  {summaryInfographicStats.perfectDaysInWeek}/7d
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Proportional Time-of-Day Progress Bar (Morning · Afternoon · Evening · Anytime) */}
+          <div className="space-y-1">
+            <div className="h-2 w-full bg-slate-200/80 rounded-full overflow-hidden flex gap-0.5">
+              {PHASES.map((p) => {
+                const grp = groupedByPhase[p.id];
+                const pct =
+                  grp.totalCount > 0
+                    ? Math.round((grp.completedCount / grp.totalCount) * 100)
+                    : 0;
+                return (
+                  <div
+                    key={`bar-${p.id}`}
+                    style={{ flexGrow: Math.max(1, grp.totalCount) }}
+                    className="h-full bg-slate-200 overflow-hidden"
+                    title={`${p.label}: ${grp.completedCount}/${grp.totalCount} (${pct}%)`}
+                  >
+                    <div
+                      className={`h-full ${p.progressFill} transition-transform duration-200 origin-left`}
+                      style={{ transform: `scaleX(${pct / 100})` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono tabular-nums text-slate-500">
+              {PHASES.map((p) => {
+                const grp = groupedByPhase[p.id];
+                return (
+                  <span key={`lbl-${p.id}`}>
+                    {p.label} {grp.completedCount}/{grp.totalCount}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {/* 7-Day Interactive Date Scroller with Micro SVG Completion Rings */}
@@ -289,7 +457,7 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
                 type="button"
                 data-testid={`productive-day-btn-${day.dateIso}`}
                 onClick={() => setSelectedDateIso(day.dateIso)}
-                className={`min-h-[60px] py-2 px-1.5 rounded-xl border flex flex-col items-center justify-between transition-colors cursor-pointer whitespace-nowrap ${
+                className={`min-h-[62px] py-2 px-1.5 rounded-xl border flex flex-col items-center justify-between transition-colors cursor-pointer whitespace-nowrap ${
                   isSelected
                     ? 'bg-slate-900 border-slate-900 text-white'
                     : day.isToday
@@ -298,13 +466,13 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
                 }`}
               >
                 <span
-                  className={`text-[10px] font-medium tracking-tight ${
+                  className={`text-[11px] font-medium tracking-[0.02em] uppercase ${
                     isSelected ? 'text-slate-300' : 'text-slate-500'
                   }`}
                 >
                   {day.weekdayShort}
                 </span>
-                <span className="text-xs font-bold font-mono tabular-nums">
+                <span className="text-[13px] sm:text-sm font-bold font-mono tabular-nums">
                   {day.dayNumber}
                 </span>
                 <svg
@@ -348,9 +516,9 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
             type="button"
             data-testid="productive-filter-all"
             onClick={() => setTimeFilter('all')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg text-[13px] font-medium tracking-[-0.01em] transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
               timeFilter === 'all'
-                ? 'bg-white text-slate-900 shadow-2xs'
+                ? 'bg-white text-slate-900 font-semibold shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -365,9 +533,9 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
                 type="button"
                 data-testid={`productive-filter-${phase.id}`}
                 onClick={() => setTimeFilter(phase.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg text-[13px] font-medium tracking-[-0.01em] flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                   isActive
-                    ? 'bg-white text-slate-900 shadow-2xs'
+                    ? 'bg-white text-slate-900 font-semibold shadow-2xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -380,6 +548,16 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
           })}
         </div>
       </div>
+
+      {/* Expandable Inline Productive Infographics Studio */}
+      {showInlineInfographics && (
+        <ProductiveInfographicsPanel
+          todayIso={todayIso}
+          todos={todos}
+          habits={habits}
+          onToggleHabitDate={onToggleHabitDate}
+        />
+      )}
 
       {/* 2. Chronological Time-of-Day Sections (Morning / Afternoon / Evening / Anytime) */}
       <div className="space-y-3.5">
@@ -416,14 +594,14 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 font-display">
+                      <h3 className="text-[15px] sm:text-base font-bold tracking-[-0.02em] text-slate-950 font-display">
                         {phase.label}
                       </h3>
                       <span className="text-xs font-mono tabular-nums text-slate-500">
                         {phase.timeRangeLabel}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 truncate">
+                    <p className="text-[12.5px] text-slate-500 truncate">
                       {phase.subtitle}
                     </p>
                   </div>
@@ -518,7 +696,7 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
                           <div className="min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <span
-                                className={`text-sm font-semibold leading-snug ${
+                                className={`text-[15px] font-medium tracking-[-0.012em] leading-[1.38] ${
                                   isDoneOnDate
                                     ? 'line-through text-slate-400'
                                     : 'text-slate-900'
@@ -529,32 +707,32 @@ export const ProductiveDayFeed: React.FC<ProductiveDayFeedProps> = ({
                             </div>
 
                             {/* Unboxed Metadata with Typographic Separators (Zero-Pill Discipline) */}
-                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[12.5px] leading-snug text-slate-500">
                               <span className="font-semibold text-emerald-700">
                                 Daily Habit
                               </span>
-                              <span aria-hidden="true">·</span>
+                              <span aria-hidden="true" className="text-slate-300">·</span>
                               <span className="font-medium text-slate-700">
                                 {habit.lifeArea}
                               </span>
                               {habit.whenTime && (
                                 <>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="font-mono tabular-nums text-slate-600">
+                                  <span aria-hidden="true" className="text-slate-300">·</span>
+                                  <span className="font-mono tabular-nums text-slate-600 text-[12px]">
                                     {habit.whenTime}
                                   </span>
                                 </>
                               )}
                               {habit.durationMinutes && (
                                 <>
-                                  <span aria-hidden="true">·</span>
-                                  <span className="font-mono tabular-nums text-slate-600">
+                                  <span aria-hidden="true" className="text-slate-300">·</span>
+                                  <span className="font-mono tabular-nums text-slate-600 text-[12px]">
                                     {habit.durationMinutes}m
                                   </span>
                                 </>
                               )}
-                              <span aria-hidden="true">·</span>
-                              <span className="inline-flex items-center gap-1 font-mono tabular-nums font-medium text-emerald-700">
+                              <span aria-hidden="true" className="text-slate-300">·</span>
+                              <span className="inline-flex items-center gap-1 font-mono tabular-nums font-medium text-emerald-700 text-[12px]">
                                 <Flame
                                   className="w-3 h-3 text-emerald-600"
                                   aria-hidden="true"

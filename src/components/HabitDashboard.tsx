@@ -519,7 +519,7 @@ export const HabitDashboard: React.FC<HabitDashboardProps> = ({
         )}
       </div>
 
-      {/* Productive.io Consistency & Momentum Infographics Studio */}
+      {/* Productive Statistics & Streak Chain Infographics Studio */}
       <ProductiveInfographicsPanel
         todayIso={todayIso}
         todos={todos}

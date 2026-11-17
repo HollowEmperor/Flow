@@ -760,15 +760,12 @@ export const BacklogDashboard: React.FC<BacklogDashboardProps> = ({
                 className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-slate-50 transition-colors"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs sm:text-sm font-semibold text-slate-900">
                       {item.title}
                     </span>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200">
-                      {item.category}
-                    </span>
-                    <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                      {item.status === 'stored' ? 'Stored for Later' : 'In Queue'}
+                    <span className="text-[11px] font-mono text-slate-400">
+                      · {item.status === 'stored' ? 'Stored for Later' : 'In Queue'}
                     </span>
                   </div>
                 </div>

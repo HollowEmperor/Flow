@@ -330,7 +330,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <span
-                  className={`text-sm font-semibold leading-snug break-words ${
+                  className={`text-[15px] font-medium tracking-[-0.012em] leading-[1.38] break-words ${
                     todo.completed
                       ? 'line-through text-slate-400'
                       : 'text-slate-900'
@@ -374,7 +374,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
 
               {todo.notes && (
                 <p
-                  className={`mt-1 text-xs leading-relaxed ${
+                  className={`mt-1 text-[13px] leading-[1.55] max-w-[65ch] ${
                     todo.completed ? 'text-slate-400' : 'text-slate-600'
                   }`}
                 >
@@ -383,11 +383,11 @@ export const TaskRow: React.FC<TaskRowProps> = ({
               )}
 
               {/* Unboxed metadata with typographic separators (Zero-Pill Discipline) */}
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px] leading-snug text-slate-500">
                 <span className="font-medium text-slate-700">
                   {todo.category}
                 </span>
-                <span aria-hidden="true">·</span>
+                <span aria-hidden="true" className="text-slate-300">·</span>
                 <span
                   className={
                     todo.completed ? 'text-slate-400' : priorityMeta.colorClass
@@ -398,7 +398,7 @@ export const TaskRow: React.FC<TaskRowProps> = ({
 
                 {todo.scheduledHour !== undefined && (
                   <>
-                    <span aria-hidden="true">·</span>
+                    <span aria-hidden="true" className="text-slate-300">·</span>
                     <span
                       data-testid={`task-scheduled-badge-${todo.id}`}
                       className="font-mono tabular-nums font-semibold text-blue-700"
@@ -408,9 +408,9 @@ export const TaskRow: React.FC<TaskRowProps> = ({
                   </>
                 )}
 
-                <span aria-hidden="true">·</span>
+                <span aria-hidden="true" className="text-slate-300">·</span>
                 <span
-                  className={`font-mono tabular-nums ${
+                  className={`font-mono tabular-nums text-[12px] ${
                     isOverdue
                       ? 'text-red-600 font-medium'
                       : isDueToday && !todo.completed
